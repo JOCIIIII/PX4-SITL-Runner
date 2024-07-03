@@ -1,37 +1,5 @@
 version: "3"
 services:
-  px4-001:
-    depends_on:
-      - qgc
-      - sim
-    privileged: true
-    environment:
-      # -----------STATIC VALUE DO NOT MODIFY------------
-      ROS_DOMAIN_ID:              ${ROS_DOMAIN_ID}
-      QGC_IP:                     ${CONTAINER_QGC_ADDR}
-      ROS2_UXRCE_IP:              ${CONTAINER_ROS2_UXRCE_ADDR}
-      SITL_TYPE:                  ${SITL_TYPE}
-      SITL_AIRFRAME_ID:           ${SITL_AIRFRAME_ID}
-      SITL_AIRFRAME:              ${SITL_AIRFRAME}
-      PX4_SIM_HOST_ADDR:          ${CONTAINER_SIM_ADDR}
-      UXRCE_DDS_CFG:              ${UXRCE_DDS_CFG}
-      PX4_UXRCE_DDS_NS:           ${PX4_UXRCE_DDS_NS}
-      DEBUG_MODE:                 ${PX4_DEBUG_MODE}
-      EXPORT_ENV:                 ${PX4_EXPORT_ENV}
-      # -------------------------------------------------
-    # volumes:
-    #   # --------SET FOR DEVELOPMENT OR DEBUGGING---------
-    #   # ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ 
-    #   - ./entrypoint.sh:/usr/local/bin/entrypoint.sh
-    #   # ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ 
-    networks:
-      sitl-net:
-        ipv4_address: ${CONTAINER_PX4_ADDR}
-    container_name:   ${CONTAINER_PX4_NAME}
-    hostname:         ${CONTAINER_PX4_HOSTNAME}
-    image:            ${CONTAINER_PX4_IMAGE}
-
-
   sim:
     privileged: true
     environment:
@@ -52,6 +20,7 @@ services:
       HEADLESS:                   ${GAZEBO_HEADLESS}
       DEBUG_MODE:                 ${SIM_DEBUG_MODE}
       EXPORT_ENV:                 ${SIM_EXPORT_ENV}
+      PIXHAWK_SERIAL_PORT:        ${PILS_PIXHAWK_SERIAL_PORT}
       # -------------------------------------------------
 
     volumes:
@@ -65,14 +34,14 @@ services:
 
     devices:
       # -----------STATIC VALUE DO NOT MODIFY------------
-      - /dev/dri/card0
-      - /dev/dri/renderD128
+      - /dev
       # -------------------------------------------------
-    networks:
-      sitl-net:
-        ipv4_address: ${CONTAINER_SIM_ADDR}
+    network_mode: "host"
+    # networks:
+    #   sitl-net:
+    #     ipv4_address: ${CONTAINER_SIM_ADDR}
+    # hostname:         ${CONTAINER_SIM_HOSTNAME}
     container_name:   ${CONTAINER_SIM_NAME}
-    hostname:         ${CONTAINER_SIM_HOSTNAME}
     image:            ${CONTAINER_SIM_IMAGE}
     # -------------SET TO ASSIGN NVIDIA GPU------------
     # ---COMMENT OUT IF YOU DO NOT HAVE A NVIDIA GPU---
@@ -109,11 +78,12 @@ services:
       # - /home/yonghajo/Documents/Unmanned_Vehicle/gitcode_jociiiii/A4VAI-Algorithms-ROS2_exp/CollisionAvoidance:/home/ue4/ros_ws/src
       # - ./entrypoint.sh:/usr/local/bin/entrypoint.sh
       # ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ 
-    networks:
-      sitl-net:
-        ipv4_address: ${CONTAINER_AIRSIM_ADDR}
+    network_mode: "host"
+    # networks:
+    #   sitl-net:
+    #     ipv4_address: ${CONTAINER_AIRSIM_ADDR}
+    # hostname:         ${CONTAINER_AIRSIM_HOSTNAME}
     container_name:   ${CONTAINER_AIRSIM_NAME}
-    hostname:         ${CONTAINER_AIRSIM_HOSTNAME}
     image:            ${CONTAINER_AIRSIM_IMAGE}
     # -------------SET TO ASSIGN NVIDIA GPU------------
     # ---COMMENT OUT IF YOU DO NOT HAVE A NVIDIA GPU---
@@ -146,11 +116,12 @@ services:
       - /dev/dri/card0
       - /dev/dri/renderD128
       # -------------------------------------------------
-    networks:
-      sitl-net:
-        ipv4_address: ${CONTAINER_QGC_ADDR}
+    network_mode: "host"
+    # networks:
+    #   sitl-net:
+    #     ipv4_address: ${CONTAINER_QGC_ADDR}
+    # hostname:         ${CONTAINER_QGC_HOSTNAME}
     container_name:   ${CONTAINER_QGC_NAME}
-    hostname:         ${CONTAINER_QGC_HOSTNAME}
     image:            ${CONTAINER_QGC_IMAGE}
     # -------------SET TO ASSIGN NVIDIA GPU------------
     # ---COMMENT OUT IF YOU DO NOT HAVE A NVIDIA GPU---
@@ -164,179 +135,15 @@ services:
               capabilities: [gpu]
     # ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿
 
-  ros2-xrce:
-    depends_on:
-      - qgc
-      - sim
-      - px4-001
-    environment:
-      # -----------STATIC VALUE DO NOT MODIFY------------
-      NVIDIA_DRIVER_CAPABILITIES: ${NVIDIA_DRIVER_CAPABILITIES}
-      ROS_DOMAIN_ID:              ${ROS_DOMAIN_ID}
-      DEBUG_MODE:                 ${ROS2_XRCE_DEBUG_MODE}
-      EXPORT_ENV:                 ${ROS2_XRCE_SIM_EXPORT_ENV}
-      # -------------------------------------------------
-    networks:
-      sitl-net:
-        ipv4_address: ${CONTAINER_ROS2_UXRCE_ADDR}
-    container_name:   ${CONTAINER_ROS2_UXRCE_NAME}
-    hostname:         ${CONTAINER_ROS2_UXRCE_HOSTNAME}
-    image:            ${CONTAINER_ROS2_UXRCE_IMAGE}
-
-  ros2-pp:
-    depends_on:
-      - airsim    
-      - px4-001
-      - qgc
-      - ros2-xrce
-      - sim
-    environment:
-      # -----------STATIC VALUE DO NOT MODIFY------------
-      NVIDIA_DRIVER_CAPABILITIES: ${NVIDIA_DRIVER_CAPABILITIES}
-      ROS_DOMAIN_ID:              ${ROS_DOMAIN_ID}
-      DEBUG_MODE:                 ${ROS2_PATH_PLANNING_DEBUG_MODE}
-      REBUILD_MODE:               ${ROS2_PATH_PLANNING_REBUILD_MODE}
-      EXPORT_ENV:                 ${ROS2_PATH_PLANNING_SIM_EXPORT_ENV}
-      MODE:                       ${ROS2_PATH_PLANNING_RUN_MODE}
-      ROS2_ALGORITHM:             PATH_PLANNING
-      # -------------------------------------------------
-    networks:
-      sitl-net:
-        ipv4_address: ${CONTAINER_ROS2_PATH_PLANNING_ADDR}
-    container_name:   ${CONTAINER_ROS2_PATH_PLANNING_NAME}
-    hostname:         ${CONTAINER_ROS2_PATH_PLANNING_HOSTNAME}
-    image:            ${CONTAINER_ROS2_PATH_PLANNING_IMAGE}
-    # volumes:
-    #   - ${PATH_PLANNING_SOURCE_CODE_DIR}:/home/user/ros_ws/src
-    # -------------SET TO ASSIGN NVIDIA GPU------------
-    # ---COMMENT OUT IF YOU DO NOT HAVE A NVIDIA GPU---
-    # ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ 
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    # ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿
-
-  ros2-pf:
-    depends_on:
-      - airsim    
-      - px4-001
-      - qgc
-      - ros2-xrce
-      - sim
-    environment:
-      # -----------STATIC VALUE DO NOT MODIFY------------
-      NVIDIA_DRIVER_CAPABILITIES: ${NVIDIA_DRIVER_CAPABILITIES}
-      ROS_DOMAIN_ID:              ${ROS_DOMAIN_ID}
-      DEBUG_MODE:                 ${ROS2_PATH_FOLLOWING_DEBUG_MODE}
-      REBUILD_MODE:               ${ROS2_PATH_FOLLOWING_REBUILD_MODE}
-      EXPORT_ENV:                 ${ROS2_PATH_FOLLOWING_SIM_EXPORT_ENV}
-      ROS2_ALGORITHM:             PATH_FOLLOWING
-      # -------------------------------------------------
-    networks:
-      sitl-net:
-        ipv4_address: ${CONTAINER_ROS2_PATH_FOLLOWING_ADDR}
-    container_name:   ${CONTAINER_ROS2_PATH_FOLLOWING_NAME}
-    hostname:         ${CONTAINER_ROS2_PATH_FOLLOWING_HOSTNAME}
-    image:            ${CONTAINER_ROS2_PATH_FOLLOWING_IMAGE}
-    # volumes:
-    #   - ${PATH_FOLLOWING_SOURCE_CODE_DIR}:/home/user/ros_ws/src
-    # -------------SET TO ASSIGN NVIDIA GPU------------
-    # ---COMMENT OUT IF YOU DO NOT HAVE A NVIDIA GPU---
-    # ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ 
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    # ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿
-
-  ros2-ca:
-    depends_on:
-      - airsim    
-      - px4-001
-      - qgc
-      - ros2-xrce
-      - sim
-    environment:
-      # -----------STATIC VALUE DO NOT MODIFY------------
-      NVIDIA_DRIVER_CAPABILITIES: ${NVIDIA_DRIVER_CAPABILITIES}
-      ROS_DOMAIN_ID:              ${ROS_DOMAIN_ID}
-      DEBUG_MODE:                 ${ROS2_COLLISION_AVOIDANCE_DEBUG_MODE}
-      REBUILD_MODE:               ${ROS2_COLLISION_AVOIDANCE_REBUILD_MODE}
-      EXPORT_ENV:                 ${ROS2_COLLISION_AVOIDANCE_SIM_EXPORT_ENV}
-      ROS2_ALGORITHM:             COLLISION_AVOIDANCE
-      # -------------------------------------------------
-    networks:
-      sitl-net:
-        ipv4_address: ${CONTAINER_ROS2_COLLISION_AVOIDANCE_ADDR}
-    container_name:   ${CONTAINER_ROS2_COLLISION_AVOIDANCE_NAME}
-    hostname:         ${CONTAINER_ROS2_COLLISION_AVOIDANCE_HOSTNAME}
-    image:            ${CONTAINER_ROS2_COLLISION_AVOIDANCE_IMAGE}
-    # volumes:
-    #   - ${COLLISION_AVOIDANCE_SOURCE_CODE_DIR}:/home/user/ros_ws/src
-    # -------------SET TO ASSIGN NVIDIA GPU------------
-    # ---COMMENT OUT IF YOU DO NOT HAVE A NVIDIA GPU---
-    # ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ 
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    # ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿
-
-  ros2-ct:
-    depends_on:
-      - airsim    
-      - px4-001
-      - qgc
-      - ros2-xrce
-      - sim
-    environment:
-      # -----------STATIC VALUE DO NOT MODIFY------------
-      NVIDIA_DRIVER_CAPABILITIES: ${NVIDIA_DRIVER_CAPABILITIES}
-      ROS_DOMAIN_ID:              ${ROS_DOMAIN_ID}
-      DEBUG_MODE:                 ${ROS2_CONTROLLER_DEBUG_MODE}
-      REBUILD_MODE:               ${ROS2_CONTROLLER_REBUILD_MODE}
-      EXPORT_ENV:                 ${ROS2_CONTROLLER_SIM_EXPORT_ENV}
-      ROS2_ALGORITHM:             CONTROLLER
-      # -------------------------------------------------
-    networks:
-      sitl-net:
-        ipv4_address: ${CONTAINER_ROS2_CONTROLLER_ADDR}
-    container_name:   ${CONTAINER_ROS2_CONTROLLER_NAME}
-    hostname:         ${CONTAINER_ROS2_CONTROLLER_HOSTNAME}
-    image:            ${CONTAINER_ROS2_CONTROLLER_IMAGE}
-    # volumes:
-    #   - ${CONTROLLOER_SOURCE_CODE_DIR}:/home/user/ros_ws/src
-    # -------------SET TO ASSIGN NVIDIA GPU------------
-    # ---COMMENT OUT IF YOU DO NOT HAVE A NVIDIA GPU---
-    # ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ 
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    # ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿
-
-networks:
-  sitl-net:
-    name: ${CONTAINER_NET_NAME}
-    driver: bridge
-    ipam:
-      driver: default
-      config: 
-        - subnet:   ${CONTAINER_NET_SUBNET}
-          gateway:  ${CONTAINER_NET_GATEWAY}
+# networks:
+#   sitl-net:
+#     name: ${CONTAINER_NET_NAME}
+#     driver: bridge
+#     ipam:
+#       driver: default
+#       config: 
+#         - subnet:   ${CONTAINER_NET_SUBNET}
+#           gateway:  ${CONTAINER_NET_GATEWAY}
 
 # DOCKER COMPOSE UP COMMAND
 # docker compose -f docker-compose.yml --env-file run.env up
