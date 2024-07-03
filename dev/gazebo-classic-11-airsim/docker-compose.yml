@@ -55,49 +55,6 @@ services:
               capabilities: [gpu]
     # ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿
 
-  airsim:
-    environment:
-      # -----------STATIC VALUE DO NOT MODIFY------------
-      DISPLAY:                    ${DISPLAY}
-      WAYLAND_DISPLAY:            ${WAYLAND_DISPLAY}
-      XDG_RUNTIME_DIR:            ${XDG_RUNTIME_DIR}
-      PIXELSTREAM:                ${PIXELSTREAM}
-      ROS_DOMAIN_ID:              ${ROS_DOMAIN_ID}
-      REBUILD_AIRSIM:             ${REBUILD_AIRSIM}
-      DEBUG_MODE:                 ${AIRSIM_DEBUG_MODE}
-      EXPORT_ENV:                 ${AIRSIM_EXPORT_ENV}
-      # -------------------------------------------------
-    volumes:
-      # -----------STATIC VALUE DO NOT MODIFY------------
-      - ${X11_SOCKET_DIR}:${X11_SOCKET_DIR}
-      - ${PULSEAUDIO_DIR}:/run/user/1000/pulse
-      - ${UNREAL_BINARY_DIR}:/home/ue4/binary
-      # --------SET FOR DEVELOPMENT OR DEBUGGING---------
-      # ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ 
-      # COLLISION AVOIDANCE ROS_2_PUB_depth TEST	
-      # - /home/yonghajo/Documents/Unmanned_Vehicle/gitcode_jociiiii/A4VAI-Algorithms-ROS2_exp/CollisionAvoidance:/home/ue4/ros_ws/src
-      # - ./entrypoint.sh:/usr/local/bin/entrypoint.sh
-      # ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ 
-    network_mode: "host"
-    # networks:
-    #   sitl-net:
-    #     ipv4_address: ${CONTAINER_AIRSIM_ADDR}
-    # hostname:         ${CONTAINER_AIRSIM_HOSTNAME}
-    container_name:   ${CONTAINER_AIRSIM_NAME}
-    image:            ${CONTAINER_AIRSIM_IMAGE}
-    # -------------SET TO ASSIGN NVIDIA GPU------------
-    # ---COMMENT OUT IF YOU DO NOT HAVE A NVIDIA GPU---
-    # ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ ﹀ 
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    # ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿ ︿
-
-
   qgc:
     privileged: true
     environment:

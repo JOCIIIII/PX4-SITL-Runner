@@ -1,15 +1,32 @@
-# Containerized PX4 SITL Run Script
+1. PC
 
-- Further documentation will be made.
+$ git clone https://github.com/JOCIIIII/PX4-SITL-Runner.git -b PILS-ROBOT
+$ cd /dev/gazebo-classic-11-airsim
+$ docker compose -f docker-compose.yml --env-file run.env up
 
-## Troubleshooting
+2. jetson
+$ docker pull kestr3l/ros2:uxrce-humble
 
-### ROS2 Related
+$ docker run \
+-it \
+--privileged \
+-e TERM=xterm-256color \
+-e DISPLAY=:0 \
+-v /dev:/dev \
+-v /tmp/.X11-unix:/tmp/.X11-unix:ro \
+--network host \
+kestr3l/ros2:uxrce-humble bash \
 
-#### Issue that user can not read the subscribed topic
+VScode 실행 후 도커안으로 진입 
 
-- **First, you can check `PX4_UXRCE_DDS_NS`**
-  - Namespace which include chatacter `-`(Dash) can be the cause.
-  - You can use `_`(Underbar) instead.
-- **Or, QoS settings can also be the reason.**
-  - PX4 developer guide suggests this. You can read [this](https://docs.px4.io/main/en/ros/ros2_comm.html#ros-2-subscriber-qos-settings).
+$ sudo chmod 666 /dev/ttyUSB0
+
+/home/user/scripts폴더 entrypoint.sh 수정
+MicroXRCEAgent UDP -> serial --dev /dev/USB0 -b 921600
+
+$ cd /home/user/scripts
+$ ./entrypoint.sh
+
+
+
+
