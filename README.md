@@ -1,10 +1,10 @@
-1. PC
+# 1. PC
 
 $ git clone https://github.com/JOCIIIII/PX4-SITL-Runner.git -b PILS-ROBOT
 $ cd /dev/gazebo-classic-11-airsim
 $ docker compose -f docker-compose.yml --env-file run.env up
 
-2. jetson
+# 2. jetson
 $ docker pull kestr3l/ros2:uxrce-humble
 
 $ docker run \
