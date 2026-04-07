@@ -6,7 +6,7 @@
 # SET THE BASIC ENVIRONMENT VARIABLE
 export TERM=xterm-256color
 export NO_PXH=1
-export PX4_SYS_AUTOSTART=10016
+export PX4_SYS_AUTOSTART=2000
 
 # SET THE BASE DIRECTORY
 BASE_DIR=$(dirname $(readlink -f "$0"))
