@@ -1,2 +1,5 @@
 .vscode/
 scripts/ros2/.vscode/
+
+.claude/
+CLAUDE.md
