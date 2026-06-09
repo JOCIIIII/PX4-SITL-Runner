@@ -24,9 +24,16 @@ PX4_SIM_DIR=${PX4_WORKSPACE}/PX4-Autopilot/Tools/simulation
 PX4_BUILD_DIR=${PX4_WORKSPACE}/PX4-Autopilot/build/px4_sitl_default
 PX4_BINARY_DIR=${PX4_WORKSPACE}/PX4-Autopilot/build/px4_sitl_default/bin
 
-apt-get update && apt-get install -y gettext
-
-envsubst < ${PX4_SIM_DIR}/gazebo-classic/sitl_gazebo-classic/worlds/templet/windy.world.in > ${PX4_SIM_DIR}/gazebo-classic/sitl_gazebo-classic/worlds/windy.world
+# APPLY WIND PARAMETERS FROM envs/gazebo-classic.env INTO THE WORLD FILE.
+# Uses sed (built-in) instead of envsubst, so no apt install is needed at container start.
+WINDY_WORLD=${PX4_SIM_DIR}/gazebo-classic/sitl_gazebo-classic/worlds/windy.world
+for windVar in windVelocityMean windVelocityMax windVelocityVariance \
+               windDirectionMean windDirectionVariance \
+               windGustStart windGustDuration \
+               windGustVelocityMean windGustVelocityMax windGustVelocityVariance \
+               windGustDirectionMean windGustDirectionVariance; do
+    sed -i "s|<${windVar}>[^<]*</${windVar}>|<${windVar}>${!windVar}</${windVar}>|" "${WINDY_WORLD}"
+done
 
 source /usr/share/gazebo/setup.bash
 export GAZEBO_RESOURCE_PATH=${GAZEBO_RESOURCE_PATH}:${GAZEBO_WORKSPACE}/worlds

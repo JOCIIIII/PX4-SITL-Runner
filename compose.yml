@@ -20,6 +20,7 @@ services:
       GAZEBO_CLASSIC_IP:          ${GAZEBO_CLASSIC_IP}
       ROS2_IP:                    ${ROS2_IP}
       QGC_IP:                     ${QGC_IP}
+      SITL_AIRFRAME:              ${SITL_AIRFRAME}
     volumes:
       - ${X11_SOCKET_DIR}:${X11_SOCKET_DIR}
       - ${SITL_PULSEAUDIO_DIR}:/run/user/1000/pulse

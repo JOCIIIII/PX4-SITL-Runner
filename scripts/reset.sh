@@ -44,9 +44,8 @@ else
        [ "$1x" != "px4x" ] && \
        [ "$1x" != "ros2x" ] && \
        [ "$1x" != "gazebo-classicx" ] && \
-       [ "$1x" != "gazebox" ] && \
        [ "$1x" != "scriptsx" ]; then
-        EchoRed "[$(basename "$0")] INVALID INPUT. PLEASE USE ARGUMENT AMONG \"airsim\", \"px4\", \"ros2\", \"gazebo-classic\", \"gazebo\" and \"scripts\"."
+        EchoRed "[$(basename "$0")] INVALID INPUT. PLEASE USE ARGUMENT AMONG \"airsim\", \"px4\", \"ros2\", \"gazebo-classic\" and \"scripts\"."
         exit 1
     fi
 fi
@@ -77,9 +76,6 @@ elif [ "$1x" == "ros2x" ]; then
 elif [ "$1x" == "gazebo-classicx" ]; then
     EchoGreen "[$(basename "$0")] RESET GAZEBO-CLASSIC SOURCE FILES"
     git -C ${REPO_DIR} checkout -- Gazebo-Classic
-elif [ "$1x" == "gazebox" ]; then
-    EchoRed "[$(basename "$0")] NOT IMPLEMENTED YET"
-    exit 1
 elif [ "$1x" == "scriptsx" ]; then
     EchoGreen "[$(basename "$0")] RESET SCRIPTS"
     git -C ${REPO_DIR} checkout -- scripts

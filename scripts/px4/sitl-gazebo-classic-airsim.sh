@@ -6,7 +6,16 @@
 # SET THE BASIC ENVIRONMENT VARIABLE
 export TERM=xterm-256color
 export NO_PXH=1
-export PX4_SYS_AUTOSTART=2000
+
+# SELECT THE PX4 AIRFRAME ID FROM SITL_AIRFRAME (set in envs/gazebo-classic.env)
+case "${SITL_AIRFRAME:-x8}" in
+    x8)   export PX4_SYS_AUTOSTART=2000  ;;
+    iris) export PX4_SYS_AUTOSTART=10015 ;;
+    *)
+        echo "[$(basename "$0")] ERROR: unsupported SITL_AIRFRAME='${SITL_AIRFRAME}'. Valid options: x8, iris."
+        exit 1
+        ;;
+esac
 
 # SET THE BASE DIRECTORY
 BASE_DIR=$(dirname $(readlink -f "$0"))

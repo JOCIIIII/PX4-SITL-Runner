@@ -45,7 +45,6 @@ else
        [ "$1x" != "gazebo-classic-airsim-sitlx" ] && \
        [ "$1x" != "px4x" ] && \
        [ "$1x" != "gazebo-classicx" ] && \
-       [ "$1x" != "gazebox" ] && \
        [ "$1x" != "airsimx" ] && \
        [ "$1x" != "ros2x" ] && \
        [ "$1x" != "qgcx" ]; then
@@ -86,9 +85,6 @@ elif [ "$1x" == "px4x" ]; then
     EchoYellow "[$(basename "$0")] STOPPING PX4 CONTAINER..."
 elif [ "$1x" == "gazebo-classicx" ]; then
     EchoYellow "[$(basename "$0")] STOPPING GAZEBO-CLASSIC CONTAINER..."
-elif [ "$1x" == "gazebox" ]; then
-    EchoRed "[$(basename "$0")] NOT IMPLEMENTED YET"
-    exit 1
 elif [ "$1x" == "airsimx" ]; then
     EchoYellow "[$(basename "$0")] STOPPING AIRSIM CONTAINER..."
 elif [ "$1x" == "ros2x" ]; then

@@ -43,9 +43,9 @@ touch ${WORKSPACE_DIR}/logs/algorithm_test.log
 touch ${WORKSPACE_DIR}/logs/plot.log
 
 # RUN THE ROS2 NODES
-ros2 run algorithm_test path_following_test 2>&1 | tee ${WORKSPACE_DIR}/logs/algorithm_test.log &
-ros2 run pathfollowing node_MPPI_output 2>&1 | tee ${WORKSPACE_DIR}/logs/node_MPPI_output.log &
-ros2 run pathfollowing node_att_ctrl 2>&1 | tee ${WORKSPACE_DIR}/logs/node_att_ctrl.log &
+# ros2 run algorithm_test path_following_test 2>&1 | tee ${WORKSPACE_DIR}/logs/algorithm_test.log &
+# ros2 run pathfollowing node_MPPI_output 2>&1 | tee ${WORKSPACE_DIR}/logs/node_MPPI_output.log &
+# ros2 run pathfollowing node_att_ctrl 2>&1 | tee ${WORKSPACE_DIR}/logs/node_att_ctrl.log &
 
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 

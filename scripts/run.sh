@@ -26,7 +26,6 @@ usageState1["gazebo-classic-sitl"]="DEPLOY GAZEBO SITL CONTAINER"
 usageState1["gazebo-classic-airsim-sitl"]="DEPLOY GAZEBO-AIRSIM SITL CONTAINER"
 usageState1["px4"]="DEPLOY PX4-AUTOPILOT CONTAINER"
 usageState1["gazebo-classic"]="DEPLOY GAZEBO-CLASSIC CONTAINER"
-usageState1["gazebo"]="DEPLOY GAZEBO CONTAINER"
 usageState1["airsim"]="DEPLOY AIRSIM CONTAINER"
 usageState1["ros2"]="DEPLOY ROS2 CONTAINER"
 usageState1["qgc"]="DEPLOY QGroundControl CONTAINER"
@@ -345,9 +344,6 @@ elif [ "$1x" == "gazebo-classicx" ]; then
         SetRunModeGazeboClassic $0 sitl-px4
     fi
     # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-elif [ "$1x" == "gazebox" ]; then
-    EchoRed "[$(basename "$0")] NOT IMPLEMENTED YET"
-    exit 1
 elif [ "$1x" == "airsimx" ]; then
     # INPUT STATEMENT 2 VALIDITY CHECK
     # >>>----------------------------------------------------

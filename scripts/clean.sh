@@ -69,6 +69,4 @@ elif [ "$1x" == "ros2x" ]; then
     EchoRed "[$(basename "$0")] NOT IMPLEMENTED YET"
 elif [ "$1x" == "gazebo-classicx" ]; then
     EchoRed "[$(basename "$0")] NOT IMPLEMENTED YET"
-elif [ "$1x" == "gazebox" ]; then
-    EchoRed "[$(basename "$0")] NOT IMPLEMENTED YET"
 fi
