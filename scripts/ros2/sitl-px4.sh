@@ -38,8 +38,7 @@ rm -rf ${WORKSPACE_DIR}/logs/*
 touch ${WORKSPACE_DIR}/logs/uxrce-dds.log
 ${BASE_DIR}/uxrce-dds.sh 2>&1 | tee ${WORKSPACE_DIR}/logs/uxrce-dds.log &
 
-# WAIT UNTIL THE uXRCE-DDS AGENT HAS BRIDGED PX4 (/fmu TOPICS PRESENT) BEFORE STARTING
-# THE APP, SO ROS2 NODES DO NOT START BEFORE PX4 DATA IS AVAILABLE.
+# STAGE 1: WAIT UNTIL THE uXRCE-DDS AGENT HAS BRIDGED PX4 (/fmu TOPICS PRESENT).
 EchoYellow "[$(basename "$0")] WAITING FOR uXRCE-DDS AGENT + PX4 (/fmu TOPICS)..."
 agent_ready=0
 for _i in $(seq 1 60); do
@@ -52,7 +51,24 @@ done
 if [ "${agent_ready}" -eq 1 ]; then
     EchoGreen "[$(basename "$0")] /fmu TOPICS AVAILABLE - PX4 BRIDGED."
 else
-    EchoRed "[$(basename "$0")] TIMEOUT WAITING FOR /fmu TOPICS - STARTING APP ANYWAY."
+    EchoRed "[$(basename "$0")] TIMEOUT WAITING FOR /fmu TOPICS."
+fi
+
+# STAGE 2: WAIT UNTIL PX4 IS READY FOR TAKEOFF (pre-arm checks pass), so the app does
+# NOT command arm/offboard before EKF/GPS have converged ("Ready for takeoff").
+EchoYellow "[$(basename "$0")] WAITING FOR PX4 TO BE READY FOR TAKEOFF..."
+px4_ready=0
+for _i in $(seq 1 120); do
+    if timeout 3 ros2 topic echo --once /fmu/out/vehicle_status_v1 2>/dev/null | grep -q "pre_flight_checks_pass: true"; then
+        px4_ready=1
+        break
+    fi
+    sleep 1
+done
+if [ "${px4_ready}" -eq 1 ]; then
+    EchoGreen "[$(basename "$0")] PX4 READY FOR TAKEOFF - STARTING APP."
+else
+    EchoRed "[$(basename "$0")] TIMEOUT WAITING FOR PX4 READY - STARTING APP ANYWAY."
 fi
 
 # RUN THE SELECTED ROS2 APP (DROP-IN: scripts/ros2/apps/<ROS2_APP>.sh)
