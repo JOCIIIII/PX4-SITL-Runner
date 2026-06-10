@@ -22,16 +22,18 @@ done
 # MAIN STATEMENTS
 # >>>----------------------------------------------------
 
-CheckDirExists ${WORKSPACE_DIR}/px4_ros
-CheckDirEmpty ${WORKSPACE_DIR}/px4_ros
-
-CheckDirExists ${WORKSPACE_DIR}/px4_ros/install
-CheckFileExists ${WORKSPACE_DIR}/px4_ros/install/setup.bash
-
 source /opt/ros/${ROS_DISTRO}/setup.bash
-source ${WORKSPACE_DIR}/px4_ros/install/setup.bash
 
-EchoYellow "[$(basename $0)] STARRTING uXRCE DDS AGENT."
+# px4_msgs DDS types: prefer the prebuilt px4_ros workspace if it exists, otherwise
+# fall back to ros2_ws (where px4_msgs is built). MicroXRCEAgent itself is a system
+# binary (/usr/local/bin), so px4_ros is NOT required for the agent to run.
+if [ -f ${WORKSPACE_DIR}/px4_ros/install/setup.bash ]; then
+    source ${WORKSPACE_DIR}/px4_ros/install/setup.bash
+elif [ -f ${WORKSPACE_DIR}/ros2_ws/install/setup.bash ]; then
+    source ${WORKSPACE_DIR}/ros2_ws/install/setup.bash
+fi
+
+EchoYellow "[$(basename $0)] STARTING uXRCE DDS AGENT."
 MicroXRCEAgent udp4 -p 8888
 
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<

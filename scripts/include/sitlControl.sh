@@ -412,7 +412,7 @@ SetRunModeROS2() {
     RUN_MODE=$2
 
     if [ "${RUN_MODE}x" == "gazebo-classic-sitlx" ]; then
-        RUN_SCRIPT="debug.sh"
+        RUN_SCRIPT="sitl-px4.sh"
     elif [ "${RUN_MODE}x" == "gazebo-classic-airsim-sitlx" ]; then
         RUN_SCRIPT="sitl-px4-airsim.sh"
     elif [[ "${RUN_MODE}x" == "build"*"x" ]]; then

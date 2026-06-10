@@ -15,10 +15,10 @@ chmod -R o+wrx ~/Documents/A4VAI-SITL/ROS2
 ./scripts/run.sh ros2 make-tensorRT-engine.sh 
 ./scripts/run.sh ros2 build ros2_ws 
 ./scripts/run.sh ros2 stop 
-wget https://github.com/kestr31/PX4-SITL-Runner/releases/download/Resources/airsim.tar.gz -O ~/Documents/A4VAI-SITL/ROS2/airsim.tar.gz 
-wget https://github.com/JOCIIIII/PX4-SITL-Runner/releases/tag/resources/px4_ros-v1.16.0.tar.gz -O ~/Documents/A4VAI-SITL/ROS2/px4_ros.tar.gz 
-tar -zxvf ~/Documents/A4VAI-SITL/ROS2/airsim.tar.gz -C ~/Documents/A4VAI-SITL/ROS2 
-tar -zxvf ~/Documents/A4VAI-SITL/ROS2/px4_ros.tar.gz -C ~/Documents/A4VAI-SITL/ROS2 
+wget https://github.com/kestr31/PX4-SITL-Runner/releases/download/Resources/airsim.tar.gz -O ~/Documents/A4VAI-SITL/ROS2/airsim.tar.gz
+# px4_ros prebuilt tarball removed: MicroXRCEAgent is a system binary and px4_msgs is
+# built by `ros2 build ros2_ws` above, so the px4_ros workspace is not needed.
+tar -zxvf ~/Documents/A4VAI-SITL/ROS2/airsim.tar.gz -C ~/Documents/A4VAI-SITL/ROS2
 git clone https://github.com/dheera/rosboard.git -b v1.3.1 ~/Documents/A4VAI-SITL/ROS2/rosboard 
 wget https://github.com/kestr31/PX4-SITL-Runner/releases/download/Resources/GazeboDrone -O ~/Documents/A4VAI-SITL/Gazebo-Classic/GazeboDrone 
 chmod +x ~/Documents/A4VAI-SITL/Gazebo-Classic/GazeboDrone 

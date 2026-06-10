@@ -391,7 +391,7 @@ elif [ "$1x" == "ros2x" ]; then
     declare -A usageState2
     usageState2["debug"]="RUN ROS2 CONTAINER IN DEBUG MODE (sleep infinity)"
     usageState2["stop"]="STOP ROS2 CONTAINER IF IT IS RUNNING"
-    usageState2["build"]="BUILD ROS2 PACKAGES INSIDE THE CONTAINER (TARGET_WORKSPACE(S) IS(ARE) OPTIONAL)"
+    usageState2["build"]="BUILD ROS2 PACKAGES (build = all workspaces | build <ws> = clean-build a workspace | build <ws> <pkg...> = build only those packages)"
     usageState2["*.sh"]="RUN ROS2 CONTAINER IN MANUAL MODE (run specific shell script)"
     
     CheckValidity $0 usageState2 2 "$@"
@@ -477,5 +477,11 @@ docker compose -f ${SITL_DEPLOY_DIR}/compose.yml \
     --env-file ./envs/ros2.env \
     --env-file ./envs/qgc.env \
     --profile $1 up)
+
+# AFTER A ros2 BUILD, build.sh EXITS AND THE CONTAINER STOPS ON ITS OWN; CLEAN IT UP.
+if [ "$1x" == "ros2x" ] && [ "$2x" == "buildx" ]; then
+    EchoGreen "[$(basename "$0")] BUILD FINISHED - STOPPING ROS2 CONTAINER."
+    ${BASE_DIR}/stop.sh ros2
+fi
 
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
