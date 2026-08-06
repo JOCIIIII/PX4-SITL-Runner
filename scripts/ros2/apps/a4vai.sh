@@ -30,7 +30,4 @@ ros2 run rs_converter point_cloud_feature_extractor_cov 2>&1 | tee ${WORKSPACE_D
 python3 /home/user/workspace/ros2/ros2_ws/src/Python_version_easy/direct_infer.py --ros-args   -p model_path:=/home/user/workspace/ros2/ros2_ws/src/Python_version_easy/walid.onnx   -p vec_normalize_path:=/home/user/workspace/ros2/ros2_ws/src/Python_version_easy/vec_normalize.pkl   -p pointcloud_topic:=/pointcloud_features   -p cmd_topic:=/ca_vel_2_control  -p expected_points:=256 2>&1 | tee ${WORKSPACE_DIR}/logs/direct_infer.log &
 
 ros2 run foxglove foxglove 2>&1 | tee ${WORKSPACE_DIR}/logs/foxglove.log &
-ros2 launch foxglove_bridge foxglove_bridge_launch.xml port:=8765 2>&1 | tee ${WORKSPACE_DIR}/logs/foxglove_bridge.log &
-
-# RUN ROSBOARD FOR ROS2 TOPIC VISUALIZATION
-${WORKSPACE_DIR}/rosboard/run
+# foxglove_bridge is started by the airsim launcher (always-on), not here.
