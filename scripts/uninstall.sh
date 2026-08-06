@@ -35,14 +35,13 @@ else
 fi
 
 # 3) DOCKER IMAGES (OPTIONAL)
-EchoYellow "[uninstall.sh] ALSO REMOVE THE DOCKER IMAGES (~20GB)?"
+EchoYellow "[uninstall.sh] ALSO REMOVE THE DOCKER IMAGES (~25GB)?"
 read -n1 -r -p $'\e[33mREMOVE IMAGES? [y/n]:\e[0m ' RM_IMG; echo
 if [ "${RM_IMG}x" == "yx" ] || [ "${RM_IMG}x" == "Yx" ]; then
     for var in ROS2_ENV_IMAGE PX4_ENV_IMAGE GAZEBO_CLASSIC_ENV_IMAGE AIRSIM_BINARY_IMAGE QGC_ENV_IMAGE; do
         img=$(grep -h "^${var}=" ${REPO_DIR}/envs/*.env | cut -d= -f2)
         [ -n "${img}" ] && docker rmi "${img}" 2>/dev/null
     done
-    docker rmi jociiiii/a4vai:devel 2>/dev/null
     EchoGreen "[uninstall.sh] IMAGES REMOVED."
 else
     EchoYellow "[uninstall.sh] IMAGES KEPT."

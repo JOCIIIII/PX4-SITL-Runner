@@ -51,7 +51,7 @@ AirSim ROS2 브리지(Cosys-AirSim 5.4-v3.2) 소스 빌드 → ROS2 워크스페
 ./scripts/run.sh px4 build                # PX4 재빌드
 # ROS2 재빌드 (devel 이미지 — runtime 이미지에는 컴파일러가 없음):
 docker run --rm --entrypoint bash -v ~/Documents/A4VAI-SITL/ROS2:/home/user/workspace/ros2 \
-  jociiiii/a4vai:devel -c 'source /opt/ros/humble/setup.bash && cd /home/user/workspace/ros2/ros2_ws && colcon build --symlink-install'
+  jociiiii/a4vai:inhousesim-v0.9 -c 'source /opt/ros/humble/setup.bash && cd /home/user/workspace/ros2/ros2_ws && colcon build --symlink-install'
 ```
 
 ## 트러블슈팅
