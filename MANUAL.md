@@ -2,15 +2,16 @@
 
 ## 요구사항
 
-- Ubuntu 22.04 (x86_64), NVIDIA GPU + 드라이버, 디스플레이(그래픽 세션 필수)
-- Docker + Docker Compose 플러그인, NVIDIA Container Toolkit, git
+- Ubuntu 22.04 (x86_64), NVIDIA GPU + **드라이버**(사전 설치: `sudo ubuntu-drivers autoinstall` 후 재부팅), 디스플레이(그래픽 세션 필수)
 - 디스크 여유 ~60GB (도커 이미지 ~35GB + PX4/ROS2 빌드)
+- Docker/Compose/NVIDIA Container Toolkit은 아래 `setup-host.sh`가 설치해준다
 
-## 설치 (명령 1개)
+## 설치 (명령 2개)
 
 ```bash
-git clone <이 저장소> && cd PX4-SITL-Runner
-./scripts/install.sh
+git clone -b runtime https://github.com/JOCIIIII/PX4-SITL-Runner.git && cd PX4-SITL-Runner
+./scripts/setup-host.sh     # 호스트 사전준비: Docker + NVIDIA Container Toolkit (sudo, 1회)
+./scripts/install.sh        # 시뮬레이터 설치 (docker 그룹 추가됐다면 재로그인 후)
 ```
 
 도커 이미지 pull(전부 Docker Hub 공개) → PX4 v1.16.0 빌드 → ROS2 소스 클론(서브모듈 포함) →

@@ -51,9 +51,9 @@ DevelRun() { docker run --rm --entrypoint bash -v ${ROS2_WORKSPACE}:${ROS2_MNT} 
 
 # ---- 1. PREREQUISITES -------------------------------------------------------
 EchoGreen "[install.sh] [1/7] CHECKING PREREQUISITES"
-command -v git    >/dev/null || Fail "git not found"
-command -v docker >/dev/null || Fail "docker not found"
-docker compose version >/dev/null 2>&1 || Fail "docker compose plugin not found"
+command -v git    >/dev/null || Fail "git not found - run ./scripts/setup-host.sh first"
+command -v docker >/dev/null || Fail "docker not found - run ./scripts/setup-host.sh first"
+docker compose version >/dev/null 2>&1 || Fail "docker compose plugin not found - run ./scripts/setup-host.sh first"
 docker info 2>/dev/null | grep -qi "nvidia" || \
     EchoYellow "[install.sh] WARNING: nvidia runtime not visible in 'docker info' - check NVIDIA Container Toolkit"
 if [ -z "${DISPLAY}" ] && [ -z "${WAYLAND_DISPLAY}" ]; then
