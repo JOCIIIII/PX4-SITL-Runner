@@ -18,7 +18,7 @@ git clone -b runtime https://github.com/JOCIIIII/PX4-SITL-Runner.git && cd PX4-S
 ## 실행
 
 ```bash
-./scripts/run-super.sh      # SUPER + PathFollowing (충돌회피 비행)
+./scripts/run-integrated-algorithm.sh      # SUPER + PathFollowing (충돌회피 비행)
 ./scripts/run-pf-test.sh    # PathFollowing 단독 (고정 웨이포인트)
 ```
 

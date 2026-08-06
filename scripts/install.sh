@@ -3,7 +3,7 @@
 # ONE-SHOT INSTALLER FOR THE A4VAI SITL SIMULATOR (DISTRIBUTION)
 #
 # After this finishes, run either:
-#   ./scripts/run-super.sh      # SUPER planner + PathFollowing (collision avoidance)
+#   ./scripts/run-integrated-algorithm.sh      # SUPER planner + PathFollowing (collision avoidance)
 #   ./scripts/run-pf-test.sh    # PathFollowing only (fixed wp.csv waypoints)
 # Remove everything with ./scripts/uninstall.sh
 #
@@ -155,6 +155,6 @@ EchoBoxLine
 # ---- SUMMARY ----------------------------------------------------------------
 EchoGreen "[install.sh] INSTALL COMPLETE."
 EchoGreen "[install.sh] run the simulator with:"
-EchoGreen "[install.sh]   ./scripts/run-super.sh      (SUPER + PathFollowing, collision avoidance)"
+EchoGreen "[install.sh]   ./scripts/run-integrated-algorithm.sh      (SUPER + PathFollowing, collision avoidance)"
 EchoGreen "[install.sh]   ./scripts/run-pf-test.sh    (PathFollowing only)"
 EchoGreen "[install.sh] uninstall with: ./scripts/uninstall.sh"

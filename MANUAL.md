@@ -22,7 +22,7 @@ AirSim ROS2 브리지(Cosys-AirSim 5.4-v3.2) 소스 빌드 → ROS2 워크스페
 ## 실행 (명령 2개)
 
 ```bash
-./scripts/run-super.sh      # ① SUPER + PathFollowing — 라이다 맵핑·충돌회피 비행
+./scripts/run-integrated-algorithm.sh      # ① SUPER + PathFollowing — 라이다 맵핑·충돌회피 비행
 ./scripts/run-pf-test.sh    # ② PathFollowing 단독 — 고정 웨이포인트 추종 (플래너 없음)
 ```
 
