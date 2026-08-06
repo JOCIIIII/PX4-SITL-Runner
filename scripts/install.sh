@@ -2,23 +2,22 @@
 
 # ONE-SHOT INSTALLER FOR THE A4VAI SITL SIMULATOR (DISTRIBUTION)
 #
-# After this finishes (+ placing the AirSim binary), run either:
+# After this finishes, run either:
 #   ./scripts/run-super.sh      # SUPER planner + PathFollowing (collision avoidance)
 #   ./scripts/run-pf-test.sh    # PathFollowing only (fixed wp.csv waypoints)
 # Remove everything with ./scripts/uninstall.sh
 #
 # Stages (idempotent - safe to re-run after a failure):
 #   1. prerequisite checks (docker, compose, nvidia toolkit, display)
-#   2. docker images (all public on Docker Hub - pulled automatically)
+#   2. docker images (all public on Docker Hub)
 #   3. PX4-Autopilot clone + build (v1.16.0 + A4VAI custom files)
-#   4. ROS2 workspace sources + SUPER setup
-#   5. AirSim ROS2 bridge build (Cosys-AirSim 5.4-v3.2, built in the devel image)
-#   6. ROS2 workspace build (colcon, in the devel image)
-#   7. runtime resources (AirSim settings.json, GazeboDrone)
+#   4. ROS2 workspace sources (repo + pinned submodules)
+#   5. AirSim ROS2 bridge build (Cosys-AirSim 5.4-v3.2)
+#   6. ROS2 workspace build (colcon)
+#   7. runtime resources (settings.json, GazeboDrone, AirSim binary)
 #
-# NOT automated (must be provided manually):
-#   - AirSim Unreal binary package -> ~/Documents/A4VAI-SITL/AirSim/binary/
-#     (full package incl. Engine/ dir + exactly one launcher .sh)
+# The single ROS2 image (ROS2_ENV_IMAGE in envs/ros2.env) is devel-grade:
+# it both RUNS the sim and BUILDS the workspaces - no separate build image.
 
 set -o pipefail
 
@@ -28,26 +27,25 @@ REPO_DIR=$(dirname ${BASE_DIR})
 source ${BASE_DIR}/include/commonFcn.sh
 source ${BASE_DIR}/include/commonEnv.sh
 
-# ---- SOURCE REPOSITORIES / IMAGES (edit here if forks move) -----------------
+# ---- SOURCES / ASSETS (edit here if forks move) -----------------------------
 ROS2_SRC_REPO="https://github.com/JOCIIIII/A4VAI-Algorithms-ROS2.git"
 ROS2_SRC_BRANCH="inhousesim-v0.9"
 COSYS_REPO="https://github.com/Cosys-Lab/Cosys-AirSim.git"
 COSYS_TAG="5.4-v3.2"                       # must match the AirSim Unreal binary
-DEVEL_IMAGE="jociiiii/a4vai:devel"          # build environment (compilers/colcon)
-
 RESOURCE_URL="https://github.com/kestr31/PX4-SITL-Runner/releases/download/Resources"
-# AirSim Unreal binary (sim_world, Cosys-AirSim 5.4-v3.2 world) - release asset
 AIRSIM_BIN_URL="https://github.com/JOCIIIII/PX4-SITL-Runner/releases/download/inhousesim-v0.9/sim_world.tar.gz"
+
 ROS2_SRC=${ROS2_WORKSPACE}/ros2_ws/src
-# ROS2 dir must be mounted at the SAME path for build and runtime -
+ROS2_IMAGE=$(grep '^ROS2_ENV_IMAGE=' ${REPO_DIR}/envs/ros2.env | cut -d= -f2)
+# builds must mount the ROS2 dir at the SAME path the sim uses -
 # colcon hardcodes absolute paths into the install tree.
 ROS2_MNT="/home/user/workspace/ros2"
 # -----------------------------------------------------------------------------
 
 Fail() { EchoRed "[install.sh] $1"; exit 1; }
 
-# BUILDS RUN IN THE DEVEL IMAGE (the runtime image has no compilers).
-DevelRun() { docker run --rm --entrypoint bash -v ${ROS2_WORKSPACE}:${ROS2_MNT} ${DEVEL_IMAGE} -c "$1"; }
+# COLCON BUILDS RUN IN THE (devel-grade) ROS2 IMAGE.
+BuildRun() { docker run --rm --entrypoint bash -v ${ROS2_WORKSPACE}:${ROS2_MNT} ${ROS2_IMAGE} -c "$1"; }
 
 # ---- 1. PREREQUISITES -------------------------------------------------------
 EchoGreen "[install.sh] [1/7] CHECKING PREREQUISITES"
@@ -67,7 +65,6 @@ for var in ROS2_ENV_IMAGE PX4_ENV_IMAGE GAZEBO_CLASSIC_ENV_IMAGE AIRSIM_BINARY_I
     img=$(grep -h "^${var}=" ${REPO_DIR}/envs/*.env | cut -d= -f2)
     [ -n "${img}" ] && ! docker image inspect "${img}" >/dev/null 2>&1 && { docker pull "${img}" || Fail "pull failed: ${img}"; }
 done
-docker image inspect ${DEVEL_IMAGE} >/dev/null 2>&1 || docker pull ${DEVEL_IMAGE} || Fail "pull failed: ${DEVEL_IMAGE}"
 EchoBoxLine
 
 # ---- 3. PX4 -----------------------------------------------------------------
@@ -109,7 +106,7 @@ if [ ! -d ${COSYS}/AirLib/deps/eigen3/Eigen ]; then
      mv temp_eigen/eigen*/Eigen AirLib/deps/eigen3/ && rm -rf temp_eigen eigen3.zip) || Fail "eigen fetch failed"
 fi
 if [ ! -f ${COSYS}/ros2/install/setup.bash ]; then
-    DevelRun "set -e; source /opt/ros/humble/setup.bash; \
+    BuildRun "set -e; source /opt/ros/humble/setup.bash; \
         pip install -q --no-warn-script-location 'packaging>=23.2' 2>/dev/null || true; \
         cd ${ROS2_MNT}/cosys-airsim/ros2 && \
         colcon build --symlink-install --cmake-args -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release" \
@@ -124,9 +121,9 @@ fi
 EchoBoxLine
 
 # ---- 6. ROS2 WORKSPACE BUILD ------------------------------------------------
-EchoGreen "[install.sh] [6/7] ROS2 WORKSPACE BUILD (colcon, devel image)"
+EchoGreen "[install.sh] [6/7] ROS2 WORKSPACE BUILD (colcon)"
 if [ ! -d ${ROS2_WORKSPACE}/ros2_ws/install/super_planner ]; then
-    DevelRun "set -e; source /opt/ros/humble/setup.bash; \
+    BuildRun "set -e; source /opt/ros/humble/setup.bash; \
         pip install -q --no-warn-script-location 'packaging>=23.2' 2>/dev/null || true; \
         cd ${ROS2_MNT}/ros2_ws && rm -rf build install log && \
         colcon build --symlink-install --cmake-args -DBUILD_TESTING=OFF" \
@@ -145,7 +142,7 @@ if [ ! -f ${GAZEBO_CLASSIC_WORKSPACE}/GazeboDrone ]; then
 fi
 # AirSim Unreal binary (sim_world world package)
 if [ -z "$(ls ${AIRSIM_WORKSPACE}/binary/*.sh 2>/dev/null)" ]; then
-    EchoGreen "[install.sh] DOWNLOADING AIRSIM BINARY (sim_world, ~large file)..."
+    EchoGreen "[install.sh] DOWNLOADING AIRSIM BINARY (sim_world, ~280MB)..."
     mkdir -p ${AIRSIM_WORKSPACE}/binary
     wget -q --show-progress ${AIRSIM_BIN_URL} -O ${AIRSIM_WORKSPACE}/sim_world.tar.gz && \
     tar -xzf ${AIRSIM_WORKSPACE}/sim_world.tar.gz -C ${AIRSIM_WORKSPACE}/binary && \
@@ -157,11 +154,6 @@ EchoBoxLine
 
 # ---- SUMMARY ----------------------------------------------------------------
 EchoGreen "[install.sh] INSTALL COMPLETE."
-if [ ! -d ${AIRSIM_WORKSPACE}/binary ] || [ -z "$(ls ${AIRSIM_WORKSPACE}/binary/*.sh 2>/dev/null)" ]; then
-    EchoYellow "[install.sh] REMAINING MANUAL STEP:"
-    EchoYellow "[install.sh]   place the AirSim Unreal binary package (with Engine/ dir and ONE launcher .sh)"
-    EchoYellow "[install.sh]   into ${AIRSIM_WORKSPACE}/binary/"
-fi
 EchoGreen "[install.sh] run the simulator with:"
 EchoGreen "[install.sh]   ./scripts/run-super.sh      (SUPER + PathFollowing, collision avoidance)"
 EchoGreen "[install.sh]   ./scripts/run-pf-test.sh    (PathFollowing only)"
