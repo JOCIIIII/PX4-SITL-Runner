@@ -2,8 +2,7 @@
 
 무인이동체 자율비행 SITL 시뮬레이터.
 PX4(비행제어) + Gazebo Classic(물리) + AirSim(센서/환경) + ROS2 Humble(자율비행 알고리즘)을
-도커 컨테이너로 통합 실행하며, 라이다 맵핑 → SUPER 플래너 충돌회피 → 경로추종(PathFollowing)의
-전체 파이프라인이 이륙부터 착륙까지 자동으로 수행됩니다.
+도커 컨테이너로 통합 실행하며, 이륙부터 착륙까지 자동으로 수행됩니다.
 
 ---
 
@@ -50,8 +49,8 @@ cd PX4-SITL-Runner
 ## 4. 실행
 
 ```bash
-./scripts/run-integrated-algorithm.sh   # 통합 알고리즘: 라이다 맵핑 + SUPER 충돌회피 + 경로추종
-./scripts/run-pf-test.sh                # 경로추종 단독 테스트 (고정 웨이포인트, 플래너 없음)
+./scripts/run-integrated-algorithm.sh   # 경로추종 + 충돌회피
+./scripts/run-pf-test.sh                # 경로추종 단독 테스트
 ```
 
 실행하면 Gazebo·AirSim·QGroundControl 창이 뜨고, 기체가 **자동으로 이륙 → 비행 → 목표점 착륙**까지 수행합니다.
@@ -66,40 +65,11 @@ cd PX4-SITL-Runner
 ./scripts/stop.sh gazebo-classic-airsim-sitl
 ```
 
-## 6. 시나리오 변경
-
-| 대상 | 파일 (수정 후 재실행만 하면 반영) |
-|---|---|
-| 통합 알고리즘 목표점 | `~/Documents/A4VAI-SITL/ROS2/ros2_ws/src/realgazebo_fastplanner_adapters/config/goals_super_far.csv` (ENU x,y,z[m]) |
-| 경로추종 웨이포인트 | `~/Documents/A4VAI-SITL/ROS2/ros2_ws/src/path_following_test/wp.csv` (NED x,y,고도[m]) |
-
-## 7. 모니터링
-
-- **Foxglove Studio**([다운로드](https://foxglove.dev/download))를 `ws://localhost:8765`에 연결 —
-  포인트클라우드(`/cloud`), 점유맵(`/rog_map/occ`), 경로(`/fsm/path`), 기체 위치(`/odom`) 시각화
-- **QGroundControl** 창 — 기체 상태·모드·궤적
-- 노드별 로그: `~/Documents/A4VAI-SITL/ROS2/logs/*.log`
-
-## 8. 제거
+## 6. 제거
 
 ```bash
 ./scripts/uninstall.sh    # 컨테이너·작업공간 삭제 (도커 이미지 삭제는 선택)
 ```
-
-## 9. 문제 해결
-
-| 증상 | 조치 |
-|---|---|
-| `permission denied` (docker) | docker 그룹 미적용 — 로그아웃/로그인 후 재시도 |
-| `container name already in use` | `docker rm -f px4-env gz-sim airsim-binary ros2-env qgc-app` 후 재실행 |
-| `Pool overlaps with other one` | 다른 프로젝트가 172.70.0.0/16 네트워크 점유 — 해당 네트워크 제거 |
-| 설치 중단/실패 | `./scripts/install.sh` 재실행 (멱등 — 완료된 단계는 건너뜀) |
-
-그 외 상세 내용은 [MANUAL.md](./MANUAL.md) 참조.
-
-## 문의
-
-사용 중 문의사항은 jociiiii@inha.edu 로 연락 주세요.
 
 ## License
 
