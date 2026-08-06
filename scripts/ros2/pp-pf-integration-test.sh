@@ -52,9 +52,6 @@ ros2 run algorithm_test pp_pf_integrated_test 2>&1 | tee ${WORKSPACE_DIR}/logs/a
 ros2 run pathfollowing node_MPPI_output 2>&1 | tee ${WORKSPACE_DIR}/logs/node_MPPI_output.log &
 ros2 run pathfollowing node_att_ctrl 2>&1 | tee ${WORKSPACE_DIR}/logs/node_att_ctrl.log &
 
-# RUN ROSBOARD FOR ROS2 TOPIC VISUALIZATION
-${WORKSPACE_DIR}/rosboard/run
-
 # PLACE USER-DEFINED SHELL SCRIPTS/COMMANDS HERE
 # FOR EXAMPLE FOR RUNNING:
 #   algorithm1 build at /home/user/workspace/ros2/alg_ws

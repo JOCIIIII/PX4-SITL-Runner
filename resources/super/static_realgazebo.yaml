@@ -1,0 +1,193 @@
+# SUPER fsm_node config — RealGazebo 라이브 SITL 통합용.
+# static_high_speed.yaml 복제 후 ① 입력 토픽을 RealGazebo 어댑터에 맞추고
+# ② 1차 검증용 보수값으로 시작. (fsm_node -p config_name:=static_realgazebo.yaml)
+# ★ 첫 목표 = "fsm_node 가 /planning_cmd/poly_traj 를 낸다"까지. 속도/회피 본격 튜닝은 그 다음.
+fsm:
+  click_goal_en: true
+  click_goal_topic: "/planning/click_goal"   # csv_goal_pub 가 PoseStamped 로 발행(goal_pose_topic)
+  click_height: -10.0   # <= -5: goal z override 비활성 (CSV goal z 사용)
+  click_yaw_en: true
+  replan_rate: 15.0
+  cmd_topic: "/planning/pos_cmd"              # PositionCommand (미사용; super_pf_bridge 는 아래 mpc 사용)
+  mpc_cmd_topic: "/planning_cmd/poly_traj"    # ★ MINCO PolynomialTrajectory → super_pf_bridge 입력
+  timer_en: true
+
+super_planner:
+  backup_traj_en: true
+  detailed_log_en: false
+  visualization_en: true
+  use_fov_cut: false
+  print_log: false
+  visual_process: false
+  frontend_in_known_free: false
+  goal_yaw_en: false
+  goal_vel_en: false
+  corridor_bound_dis: 3
+  corridor_line_max_length: 3
+  safe_corridor_line_max_length: 999
+  iris_iter_num: 2
+  obs_skip_num: 2
+  # ★ replan 전체 시간예산(super_planner.cpp:760). 이걸 넘으면 "Replan over time" FAILED.
+  #   A* time_out(0.5s, astar.h)보다 커야 A* 가 다 쓰고도 예산 안에 든다. 정지(PlanFromRest)
+  #   에서 먼 goal 계획 시 A* 가 0.25s+ 쓰므로 0.1→0.7 로 늘린다. (고속 연속비행 땐 낮춰야 함)
+  replan_forward_dt: 1.5
+  # planning_horizon 30 = 원본 회피 안정값. (먼 goal 위해 15 로 줄였다가 회피 불안정으로 원복.)
+  planning_horizon: 30.0
+  sensing_horizon: -1
+  receding_dis: 15.0
+  robot_r: 0.4
+  yaw_dot_max: 3.0
+  # Yaw mode: 1 heading to velocity, 2 heading to goal
+  yaw_mode: 1
+  mpc_horizon: 15
+
+
+traj_opt:
+  switch:
+    save_log_en: false
+    print_optimizer_log: false
+
+  boundary:
+    # ★ 회피 우선: max_vel 5 는 나무 급선회 시 Omg/thr/Pos 제약 위반(539회)→TrajOpt 실패→충돌.
+    #   2.5 로 낮춰 회피 기동에 동역학 여유를 준다. (먼거리/속도 희생, 회피 안정 확보 후 상향)
+    max_vel: 2.5
+    max_acc: 5.0
+    max_jerk: 40.0
+    max_omg: 5
+    max_acc_thr: 25
+    min_acc_thr: 6.0
+    penna_margin: 0.05
+
+  exp_traj:
+    # 1 for xi 2 for pos
+    pos_constraint_type: 1
+    energy_cost_type: 4
+    block_energy_cost: false
+    opt_accuracy: 5.0e-6
+    scale_factor: 1.0
+    integral_reso: 15
+    smooth_eps: 0.01
+    penna_t: 1.0e+8
+    penna_pos: 5.0e+8
+    penna_vel: 5.0e+8
+    penna_acc: 5.0e+8
+    penna_jerk: -5.0e+11
+    penna_attract: -1.0e+7
+    penna_omg: 5.0e+8
+    penna_thr: 5.0e+8
+
+  backup_traj:
+    uniform_time_en: true
+    pos_constraint_type: 1
+    piece_num: 2
+    energy_cost_type: 4
+    block_energy_cost: true
+    opt_accuracy: 1.0e-6
+    scale_factor: 1.0
+    integral_reso: 12
+    smooth_eps: 0.01
+    penna_t: 1.0e+6
+    penna_ts: 1.0e+7
+    penna_pos: 1.0e+10
+    penna_vel: 1.0e+8
+    penna_acc: 1.0e+8
+    penna_jerk: -1.0e+8
+    penna_omg: 5.0e+8
+    penna_thr: 5.0e+8
+
+  flatness:
+    # x500 (약 2.0kg). 원본 1.64 → RealGazebo quad 질량 근사.
+    mass: 2.0
+    dh: 0.35
+    dv: 0.35
+    cp: 0.001
+    v_eps: 0.0001
+    grav: 9.81
+
+
+astar:
+  map_voxel_num: [ 500, 500, 100 ]
+  visual_process: false
+  allow_diag: true
+  # 0 DIAG; 1 MANHATTAN; 2 EUCLIDEAN
+  heu_type: 2
+  debug_visualization_en: false
+
+
+rog_map:
+  # ★ A* 탐색 격자. 0.3 으로 거칠게 하면 먼 goal A* 는 빨라지나 corridor/MINCO 최적화가
+  #   불안정해져(TrajOpt failed 4119회) 회피 실패→충돌. 회피 품질 우선 → 0.15 로 원복.
+  #   (먼 goal 은 도달가능 거리로 제한. 먼거리+회피 둘 다는 별도 튜닝 필요.)
+  resolution: 0.15
+  inflation_resolution: 0.15
+  inflation_step: 3
+  unk_inflation_en: false
+  unk_inflation_step: 1
+  # c-track 비행영역을 덮도록(드론 스폰 원점 부근). z 는 비행고도(5m)+여유로 16m.
+  map_size: [ 60, 60, 16 ]
+  # If the map rolling is disable, the map origin [m] should be set.
+  # ★ origin z 는 map z 범위의 중심 부근으로 — 드론 비행고도(5m)가 ground~ceil 사이에 들도록.
+  fix_map_origin: [ 0,0,0 ]
+  frontier_extraction_en: false
+
+  # Virtual ceil and ground
+  # ★ 드론 이륙고도 = flight_manager takeoff_altitude 5m. virtual_ceil_height 가 5 면
+  #   드론이 천장에 닿아 "Odom above virtual ceil" → occ 비고 planner 계획실패(호버만).
+  #   비행고도 위로 충분히(15m) 올려 천장이 비행을 막지 않게 한다.
+  virtual_ceil_height: 15
+  virtual_ground_height: -1.0
+
+  load_pcd_en: false
+
+  map_sliding:
+    # ★ true: 맵이 드론(odom)을 따라 슬라이드 → 드론이 멀리 가도 항상 주변을 맵에 담아
+    #   계속 계획 가능. false(고정 맵)면 드론이 map_size(±30m) 벗어나는 순간 앞이 unknown
+    #   →GenerateExpTrajectory failed. 먼 goal 비행엔 sliding 필수. (fix_map_origin 은 초기값만)
+    enable: true
+    # The minimum distance [m] to slide the map.
+    threshold: 0.3
+
+  esdf:
+    enable: false
+    resolution: 0.15
+    # The range of esdf around the odom [m].
+    local_update_box: [ 5,5,3 ]
+
+  # If [enable = true], the ROG-Map will actively take ros topic as input.
+  #  else user should call function [updateMap] to update the map.
+  ros_callback:
+    enable: true
+    cloud_topic: "/cloud"          # ★ RealGazebo 어댑터(px4_lidar_to_odom_cloud, world frame)
+    odom_topic: "/odom"            # ★ RealGazebo 어댑터(ENU/world)
+    odom_timeout: 2.0
+
+  visualization:
+    enable: true
+    use_dynamic_reconfigure: false
+    time_rate: 2
+    frame_rate: 0
+    range: [ 30, 30, 5 ]
+    frame_id: "world"
+    pub_unknown_map_en: false
+
+  intensity_thresh: -10
+  point_filt_num: 1
+
+  # Probabilistc update
+  raycasting:
+    # ★ 원본 high_speed 는 false(occupied 만 유지=나머지 UNKNOWN). RealGazebo lidar 로
+    #   free/occupied 를 구분해 planner 가 free 공간을 인식하게 raycasting 켠다.
+    #   (SUPER 의 'unknown=위험' 안전성은 corridor 단에서 유지됨.)
+    enable: true
+    batch_update_size: 1
+    local_update_box: [ 100,100,5 ]
+    # The range of raycasting [m].
+    ray_range: [0.5, 100 ]
+
+    p_min: 0.12
+    p_miss: 0.49
+    p_free: 0.499
+    p_occ: 0.85
+    p_hit: 0.9
+    p_max: 0.98
+    unk_thresh: 1.0
