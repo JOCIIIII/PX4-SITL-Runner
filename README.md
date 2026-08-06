@@ -1,35 +1,40 @@
+# A4VAI SITL Simulator (InhouseSim v0.9)
 
-# Containerized PX4 SITL Simulation & Development Script Tools
+PX4 + Gazebo Classic + AirSim(Cosys) + ROS2(Humble) 기반 자율비행 드론 SITL 시뮬레이터.
+라이다 맵핑(rog_map) → SUPER 플래너 충돌회피 → PathFollowing 추종의 전체 파이프라인을 도커로 실행한다.
 
-## Description
+## 요구사항
 
-[![en](https://img.shields.io/badge/lang-en-red.svg)](./README.md)
-[![kr](https://img.shields.io/badge/lang-kr-blue.svg)](./README-KR.md)
+Ubuntu 22.04 (x86_64) · NVIDIA GPU + 드라이버 · 그래픽 세션 · 디스크 ~60GB
 
-- This repository is a collection of scripts and tools for containerized PX4 SITL simulation and development.
-- The scripts and tools in this repository provides improved usability and convenience for PX4 SITL simulation and development.
+## 설치
 
-## Documentation
+```bash
+git clone -b runtime https://github.com/JOCIIIII/PX4-SITL-Runner.git && cd PX4-SITL-Runner
+./scripts/setup-host.sh     # Docker + NVIDIA Container Toolkit (sudo, 1회. docker 그룹 추가 시 재로그인)
+./scripts/install.sh        # 이미지·소스·빌드·AirSim 바이너리 전자동 (~30분)
+```
 
-- Please refer to the [repository wiki](https://github.com/kestr31/PX4-SITL-Runner/wiki) for detailed documentation.
+## 실행
 
-## Prerequisites
+```bash
+./scripts/run-super.sh      # SUPER + PathFollowing (충돌회피 비행)
+./scripts/run-pf-test.sh    # PathFollowing 단독 (고정 웨이포인트)
+```
 
-### HW & OS-Specific Requirements
+이륙→비행→착륙까지 자동 수행. 정지는 `./scripts/stop.sh gazebo-classic-airsim-sitl`,
+모니터링은 Foxglove Studio → `ws://localhost:8765`.
 
-- AMD64(x64) Based Linux System (Recommends Ubuntu 22.04 LTS)
-- Nvidia GPU (≥ RTX 20 Ampere)
-- 512 GB Storage (Recommends SSD)
-- Network Connection (For downloading external resources)
-- Desktop Environment (=Physical Display or Equivalent)
+## 제거
 
-### SW Requirements
+```bash
+./scripts/uninstall.sh
+```
 
-- `sudo` permission
-- Docker & Docker Compsoe
-- Nvidia Proprietary Driver
-- Nvidia Container Toolkit
+## 상세 문서
+
+목표점/웨이포인트 변경, 재빌드, 트러블슈팅 → [MANUAL.md](./MANUAL.md)
 
 ## License
 
-- This repository is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
+MIT — [LICENSE](./LICENSE)
