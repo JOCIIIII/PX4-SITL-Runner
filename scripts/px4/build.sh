@@ -46,24 +46,10 @@ cp ${CustomPX4FileDir}/firmware_build_test/firmware_build_test.yml              
 cp ${CustomPX4FileDir}/multiple_run/sitl_multiple_run.sh                              ${PX4GazeboSimDir}/sitl_multiple_run.sh
 cp ${CustomPX4FileDir}/launch/x8.launch                                               ${PX4RootDir}/launch/x8.launch
 
-# CHECK IF THE FILE sitl_run.sh EXISTS
-CheckFileExists "${PX4GazeboSimDir}/sitl_run.sh"
-
-# BACKUP THE ORIGINAL sitl_run.sh
-cp \
-    ${PX4GazeboSimDir}/sitl_run.sh \
-    ${PX4GazeboSimDir}/sitl_run.bak
-
-# DELETE EXCEPT THE FIRST LINE TO BUILD PX4-sitl WHILE NOT RUNNING PX4-SITL
-sed -i '2,$d' ${PX4GazeboSimDir}/sitl_run.sh
-
-# BUILD PX4-SITL
-(cd ${PX4RootDir} || exit 1; make px4_sitl gazebo-classic)
-
-# RESTORE THE ORIGINAL sitl_run.sh
-mv \
-    ${PX4GazeboSimDir}/sitl_run.bak \
-    ${PX4GazeboSimDir}/sitl_run.sh
+# BUILD PX4-SITL WITHOUT LAUNCHING THE SIMULATION.
+# sitl_run.sh (Tools/simulation/gazebo-classic/sitl_run.sh, invoked by the
+# gazebo-classic make target) exits early when DONT_RUN is set.
+(cd ${PX4RootDir} || exit 1; DONT_RUN=1 make px4_sitl gazebo-classic)
 
 # SET THE PERMISSIONS OF THE PX4-Autopilot DIRECTORY
 chmod -R o+rwx $(dirname "$BASE_DIR")
