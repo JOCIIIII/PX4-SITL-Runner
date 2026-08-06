@@ -44,6 +44,21 @@ ${BASE_DIR}/uxrce-dds.sh 2>&1 | tee ${WORKSPACE_DIR}/logs/uxrce-dds.log &
 touch ${WORKSPACE_DIR}/logs/airsim-bridge.log
 ${BASE_DIR}/airsim-bridge.sh 2>&1 | tee ${WORKSPACE_DIR}/logs/airsim-bridge.log &
 
+# ALSO RUN FOXGLOVE BRIDGE (Foxglove Studio connects at ws://<host>:8765).
+# foxglove_bridge is baked into the ROS2 image (docker/ros2-env.Dockerfile).
+touch ${WORKSPACE_DIR}/logs/foxglove_bridge.log
+ros2 launch foxglove_bridge foxglove_bridge_launch.xml port:=8765 2>&1 | tee ${WORKSPACE_DIR}/logs/foxglove_bridge.log &
+
+# STATIC TF world(ENU, PX4 원점=스폰) -> airsim_world(NED, AirSim 맵 원점).
+# 가시화 정렬용: 원시 AirSim 토픽(TF 루트 airsim_world)이 Foxglove 에서 어댑터의
+# world 프레임과 겹쳐 보이게 한다. 회전 (qx,qy,qz,qw)=(0.7071,0.7071,0,0) = ENU<->NED.
+# 병진 = -스폰위치(ENU): GAZEBO_POSE (scripts/include/commonEnv.sh) 를 바꾸면 같이 수정.
+ros2 run tf2_ros static_transform_publisher \
+    --x 27.5 --y -27.5 --z 0 \
+    --qx 0.7071068 --qy 0.7071068 --qz 0 --qw 0 \
+    --frame-id world --child-frame-id airsim_world \
+    > /dev/null 2>&1 &
+
 # STAGE 1: WAIT UNTIL THE uXRCE-DDS AGENT HAS BRIDGED PX4 (/fmu TOPICS PRESENT).
 EchoYellow "[$(basename "$0")] WAITING FOR uXRCE-DDS AGENT + PX4 (/fmu TOPICS)..."
 agent_ready=0

@@ -467,7 +467,9 @@ SetRunModeQGC() {
 
     if [ "${RUN_MODE}x" == "normalx" ]; then
         EchoGreen "[${SCRIPT_NAME}] RUNNING QGroundControl CONTAINER IN NORMAL MODE"
-        sed -i "s~QGC_RUN_COMMAND=\"\"~QGC_RUN_COMMAND=\'bash -c \"/usr/local/bin/entrypoint.sh\"\'~g" ${SITL_ENV_DIR}/qgc.env
+        # OLD IMAGE (kestr3l/qgc-app) STARTS VIA entrypoint.sh; NEW IMAGE (jociiiii/a4vai:qgc-*)
+        # HAS NO entrypoint.sh AND RUNS THE EXTRACTED AppImage DIRECTLY. SUPPORT BOTH.
+        sed -i "s~QGC_RUN_COMMAND=\"\"~QGC_RUN_COMMAND=\'bash -c \"if [ -x /usr/local/bin/entrypoint.sh ]; then exec /usr/local/bin/entrypoint.sh; else exec /opt/qgc/squashfs-root/AppRun; fi\"\'~g" ${SITL_ENV_DIR}/qgc.env
     elif [ "${RUN_MODE}x" == "debugx" ]; then
         EchoGreen "[${SCRIPT_NAME}] DEBUG MODE ENABLED FOR QGroundControl CONTAINER"
         RUN_SCRIPT="debug.sh"
