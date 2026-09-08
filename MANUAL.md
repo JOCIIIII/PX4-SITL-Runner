@@ -42,6 +42,7 @@ AirSim ROS2 브리지(Cosys-AirSim 5.4-v3.2) 소스 빌드 → ROS2 워크스페
 
 - **Foxglove Studio** → `ws://localhost:8765` (`/cloud`, `/rog_map/occ`, `/fsm/path`, `/odom` 등)
 - 로그: `~/Documents/A4VAI-SITL/ROS2/logs/*.log` (노드별)
+- 설치/실행 터미널 전체 출력: `~/Documents/A4VAI-SITL/logs/install_*.log`, `run_*.log` (자동 저장, 문제 보고 시 첨부). 실행 종료 시 노드별 로그도 `run_*_ros2/` 로 복사됨
 - QGC 창에서 기체 상태/모드 확인
 
 ## 자주 쓰는 명령

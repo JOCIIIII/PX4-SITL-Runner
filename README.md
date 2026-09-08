@@ -71,6 +71,23 @@ cd PX4-SITL-Runner
 ./scripts/uninstall.sh    # 컨테이너·작업공간 삭제 (도커 이미지 삭제는 선택)
 ```
 
+## 7. 문제가 생기면 (로그 보내기)
+
+설치와 실행의 터미널 출력은 자동으로 파일에 저장됩니다. 문제가 생기면 아래를 그대로 보내주세요.
+
+| 파일 | 내용 |
+|---|---|
+| `~/Documents/A4VAI-SITL/logs/install_<시각>.log` | `install.sh` 전체 출력 |
+| `~/Documents/A4VAI-SITL/logs/run_<프로필>_<시각>.log` | 실행 스크립트 전체 출력 (PX4·Gazebo·AirSim·ROS2·QGC 컨테이너 로그 포함) |
+| `~/Documents/A4VAI-SITL/logs/run_<프로필>_<시각>_ros2/` | 그 실행의 ROS2 노드별 로그 (Ctrl+C 로 종료했을 때 복사됨) |
+
+```bash
+# 한 번에 묶기
+tar -czf ~/a4vai-logs.tar.gz -C ~/Documents/A4VAI-SITL logs
+```
+
+> `uninstall.sh` 는 `~/Documents/A4VAI-SITL` 전체(로그 포함)를 지우므로, 로그는 제거 전에 먼저 보내주세요.
+
 ## License
 
 MIT — [LICENSE](./LICENSE)

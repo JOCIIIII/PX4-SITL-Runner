@@ -13,6 +13,9 @@ REPO_DIR=$(dirname $(dirname $(readlink -f "$0")))
 for file in ${BASE_DIR}/include/*.sh; do
     source ${file}
 done
+
+# SAVE THE WHOLE TERMINAL OUTPUT (ALL CONTAINERS) TO ${SITL_DEPLOY_DIR}/logs/run_<profile>_<timestamp>.log
+LogToFile "run_${1:-noargs}" "$0" "$@"
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 
@@ -477,6 +480,15 @@ docker compose -f ${SITL_DEPLOY_DIR}/compose.yml \
     --env-file ./envs/ros2.env \
     --env-file ./envs/qgc.env \
     --profile $1 up)
+
+# KEEP A COPY OF THE PER-NODE ROS2 LOGS NEXT TO THE RUN LOG.
+# sitl-px4*.sh WIPES ${ROS2_WORKSPACE}/logs ON EVERY START, SO THIS IS THE ONLY
+# PLACE WHERE THE LOGS OF A PAST RUN SURVIVE.
+if [[ "$1" == *"-sitl" ]] && [ -n "${SITL_LOG_FILE}" ] && [ -d "${ROS2_WORKSPACE}/logs" ]; then
+    ROS2_LOG_COPY="${SITL_LOG_FILE%.log}_ros2"
+    cp -r "${ROS2_WORKSPACE}/logs" "${ROS2_LOG_COPY}" 2>/dev/null && \
+        EchoGreen "[$(basename "$0")] ROS2 NODE LOGS COPIED TO ${ROS2_LOG_COPY}"
+fi
 
 # AFTER A ros2 BUILD, build.sh EXITS AND THE CONTAINER STOPS ON ITS OWN; CLEAN IT UP.
 if [ "$1x" == "ros2x" ] && [ "$2x" == "buildx" ]; then
