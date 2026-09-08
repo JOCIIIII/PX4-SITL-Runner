@@ -28,7 +28,24 @@ EchoGreen "[uninstall.sh] CONTAINERS AND NETWORK REMOVED."
 if [ -d "${SITL_DEPLOY_DIR}" ]; then
     EchoGreen "[uninstall.sh] REMOVING ${SITL_DEPLOY_DIR}"
     # some build artifacts are root-owned (created inside containers)
-    rm -rf "${SITL_DEPLOY_DIR}" 2>/dev/null || sudo rm -rf "${SITL_DEPLOY_DIR}"
+    rm -rf "${SITL_DEPLOY_DIR}" 2>/dev/null
+    # BUILDS RUN AS root INSIDE THE CONTAINERS (PX4 build, colcon, logs), SO A
+    # PLAIN rm USUALLY LEAVES ROOT-OWNED FILES BEHIND. REMOVE THEM THE SAME WAY
+    # THEY WERE MADE (A THROWAWAY CONTAINER) BEFORE FALLING BACK TO sudo.
+    if [ -d "${SITL_DEPLOY_DIR}" ]; then
+        # THE PX4 IMAGE IS ALWAYS PRESENT AFTER install.sh (IMAGES ARE REMOVED LATER, BELOW)
+        RM_IMG_HELPER=$(grep -h "^PX4_ENV_IMAGE=" ${REPO_DIR}/envs/*.env | cut -d= -f2)
+        docker run --rm -v "${SITL_DEPLOY_DIR}":/ws "${RM_IMG_HELPER:-ubuntu:22.04}" sh -c 'rm -rf /ws/* /ws/.[!.]*' >/dev/null 2>&1
+        rmdir "${SITL_DEPLOY_DIR}" 2>/dev/null
+    fi
+    if [ -d "${SITL_DEPLOY_DIR}" ]; then
+        EchoYellow "[uninstall.sh] ROOT-OWNED FILES LEFT - RETRYING WITH sudo"
+        sudo rm -rf "${SITL_DEPLOY_DIR}"
+    fi
+    if [ -d "${SITL_DEPLOY_DIR}" ]; then
+        EchoRed "[uninstall.sh] FAILED TO REMOVE ${SITL_DEPLOY_DIR} - REMOVE IT MANUALLY: sudo rm -rf ${SITL_DEPLOY_DIR}"
+        exit 1
+    fi
     EchoGreen "[uninstall.sh] WORKSPACE REMOVED."
 else
     EchoYellow "[uninstall.sh] ${SITL_DEPLOY_DIR} DOES NOT EXIST - SKIPPING."
