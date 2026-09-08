@@ -474,3 +474,43 @@ WarnAction(){
         fi
 }
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+LogToFile(){
+    # FUNCTION TO RE-RUN THE CALLING SCRIPT UNDER tee SO ITS WHOLE TERMINAL
+    # OUTPUT IS SAVED TO ${SITL_DEPLOY_DIR}/logs/<prefix>_<timestamp>.log.
+    # THE FILE IS WHAT USERS SEND US WHEN INSTALL/RUN FAILS.
+    # >>>---------------------------------------------------------
+    # INPUTS:
+    # $1: LOG NAME PREFIX (e.g. install, run_gazebo-classic-airsim-sitl)
+    # $2: CALLING SCRIPT PATH ($0)
+    # $3...: CALLING SCRIPT ARGUMENTS ("$@")
+    # ------------------------------------------------------------
+    # EXAMPLE (put right after sourcing commonEnv.sh):
+    # LogToFile install "$0" "$@"
+    # ------------------------------------------------------------
+    # THE RE-RUN CHILD SEES SITL_LOG_FILE SET AND RETURNS IMMEDIATELY.
+    if [ -n "${SITL_LOG_FILE}" ]; then
+        return 0
+    fi
+
+    local PREFIX=$1
+    local SCRIPT=$2
+    shift 2
+
+    local LOG_DIR=${SITL_DEPLOY_DIR}/logs
+    mkdir -p "${LOG_DIR}"
+    export SITL_LOG_FILE="${LOG_DIR}/${PREFIX}_$(date +%Y%m%d_%H%M%S).log"
+
+    EchoGreen "[$(basename "${SCRIPT}")] LOGGING THIS RUN TO ${SITL_LOG_FILE}"
+
+    # Ctrl+C MUST STILL REACH docker compose (CHILD) FOR A CLEAN SHUTDOWN,
+    # BUT NEITHER THIS SHELL NOR tee MAY DIE BEFORE THE CHILD IS DONE PRINTING.
+    trap ':' INT
+    bash "${SCRIPT}" "$@" 2>&1 | ( trap '' INT; exec tee "${SITL_LOG_FILE}" )
+    local RC=${PIPESTATUS[0]}
+    trap - INT
+
+    EchoGreen "[$(basename "${SCRIPT}")] LOG SAVED: ${SITL_LOG_FILE} (exit code ${RC})"
+    exit ${RC}
+}
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<

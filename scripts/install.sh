@@ -27,6 +27,9 @@ REPO_DIR=$(dirname ${BASE_DIR})
 source ${BASE_DIR}/include/commonFcn.sh
 source ${BASE_DIR}/include/commonEnv.sh
 
+# SAVE THE WHOLE INSTALL OUTPUT TO ${SITL_DEPLOY_DIR}/logs/install_<timestamp>.log
+LogToFile install "$0" "$@"
+
 # ---- SOURCES / ASSETS (edit here if forks move) -----------------------------
 ROS2_SRC_REPO="https://github.com/JOCIIIII/A4VAI-Algorithms-ROS2.git"
 ROS2_SRC_BRANCH="inhousesim-v0.9"
