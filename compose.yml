@@ -73,6 +73,11 @@ services:
       NVIDIA_VISIBLE_DEVICES:     all
       NVIDIA_DRIVER_CAPABILITIES: all
       __GLX_VENDOR_LIBRARY_NAME:  nvidia
+      # 하이브리드(옵티머스) 노트북: X 가 내장 GPU 위에 떠 있으면 NVIDIA GLX 가
+      # 'X Error BadValue (NV-GLX)' 로 죽는다. 렌더 오프로드로 dGPU 에 그린다.
+      # X 가 이미 NVIDIA 위인 데스크톱에서는 무해 (no-op).
+      __NV_PRIME_RENDER_OFFLOAD:  1
+      __VK_LAYER_NV_optimus:      NVIDIA_only
     volumes:
       - ${X11_SOCKET_DIR}:${X11_SOCKET_DIR}
       - ${SITL_PULSEAUDIO_DIR}:/run/user/1000/pulse
@@ -125,6 +130,11 @@ services:
       NVIDIA_VISIBLE_DEVICES:     all
       NVIDIA_DRIVER_CAPABILITIES: all
       __GLX_VENDOR_LIBRARY_NAME:  nvidia
+      # 하이브리드(옵티머스) 노트북: X 가 내장 GPU 위에 떠 있으면 NVIDIA GLX 가
+      # 'X Error BadValue (NV-GLX)' 로 죽는다. 렌더 오프로드로 dGPU 에 그린다.
+      # X 가 이미 NVIDIA 위인 데스크톱에서는 무해 (no-op).
+      __NV_PRIME_RENDER_OFFLOAD:  1
+      __VK_LAYER_NV_optimus:      NVIDIA_only
     volumes:
       - ${X11_SOCKET_DIR}:${X11_SOCKET_DIR}
       - ${SITL_PULSEAUDIO_DIR}:/run/user/1000/pulse
