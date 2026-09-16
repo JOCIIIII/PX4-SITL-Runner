@@ -3,7 +3,7 @@
 # ROS2 APP: PathFollowing ONLY test (no SUPER / no planner).
 # path_following_test publishes a fixed waypoint list from wp.csv (package share)
 # and runs the arm/offboard/takeoff -> follow -> land FSM itself.
-#   waypoints override: edit src/path_following_test/wp.csv and rebuild, or
+#   waypoints override: edit src/path_following_test/wp_rect.csv and rebuild, or
 #   set wp_csv_path below to an absolute path (no rebuild needed).
 # Build first: ./scripts/run.sh ros2 build ros2_ws
 
@@ -30,13 +30,15 @@ source ${ROS2_WS}/install/setup.bash
 export OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 MKL_NUM_THREADS=2 NUMEXPR_NUM_THREADS=2
 
 # PathFollowing (sim.yaml: wp_type 0, guid_type 2 -> needs MPPI)
-ros2 run pathfollowing node_pathfollowing 2>&1 | tee ${LOGS}/node_pathfollowing.log &
-ros2 run pathfollowing node_mppi 2>&1 | tee ${LOGS}/node_mppi.log &
+# PF 단독 시험: guid_type 0(위치제어). MPPI(2)는 90° 코너 앞에서 감속→속도 0→풍축 횡가속 0 으로 교착(2026-09-16 compare5/8).
+# wp_rect.csv = 40×40 m 사각형(이륙 고도 5 m). 내장 wp_type≠0 코스는 고도 10 m 라 출발 직후 교착하므로 쓰지 않는다.
+ros2 run pathfollowing node_pathfollowing --ros-args -p vehicle_type:=2 -p wp_type:=0 -p guid_type:=0 2>&1 | tee ${LOGS}/node_pathfollowing.log &
+ros2 run pathfollowing node_mppi --ros-args -p vehicle_type:=2 -p wp_type:=0 -p guid_type:=0 2>&1 | tee ${LOGS}/node_mppi.log &
 
 # Flight FSM + CSV waypoint publisher. Hardcodes vehicle1/fmu/* - remap to /fmu/*.
 # wp_csv_path points at the SOURCE csv so editing it needs no rebuild.
 ros2 run path_following_test path_following_test --ros-args \
-    -p wp_csv_path:=${ROS2_WS}/src/path_following_test/wp.csv \
+    -p wp_csv_path:=${ROS2_WS}/src/path_following_test/wp_rect.csv \
     -r /vehicle1/fmu/in/offboard_control_mode:=/fmu/in/offboard_control_mode \
     -r /vehicle1/fmu/in/trajectory_setpoint:=/fmu/in/trajectory_setpoint \
     -r /vehicle1/fmu/in/vehicle_attitude_setpoint:=/fmu/in/vehicle_attitude_setpoint \

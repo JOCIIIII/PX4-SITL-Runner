@@ -91,6 +91,14 @@ fi
 (cd ${ROS2_SRC} && git submodule update --init A4VAI-PathFollowing super px4_msgs) || \
     Fail "submodule init failed"
 mkdir -p ${ROS2_SRC}/super/super_planner/log   # empty dir - not carried by git
+# x8 용 SUPER 설정 — 서브모듈(push 불가) 대신 러너가 소스 config 폴더에 넣는다.
+# fsm_node 는 config_name 을 ROOT_DIR(소스)/config/ 에 붙여 읽으므로 재빌드 불필요.
+cp ${REPO_DIR}/resources/super/static_realgazebo_x8.yaml ${ROS2_SRC}/super/super_planner/config/static_realgazebo_x8.yaml
+# x8 용 PF 튜닝값 — PathFollowing 서브모듈(push 불가)의 yaml 은 install 복사본이라 colcon 전에 소스 config 를 덮어쓴다.
+# 사각형 40×40 m 시험 코스(wp_rect.csv)도 같이 — pf_test.sh 가 guid_type 0 + 이 CSV 로 PF 를 단독 시험한다.
+cp ${REPO_DIR}/resources/pf/sim.yaml  ${ROS2_SRC}/A4VAI-PathFollowing/config/sim.yaml
+cp ${REPO_DIR}/resources/pf/octo.yaml ${ROS2_SRC}/A4VAI-PathFollowing/config/octo.yaml
+cp ${REPO_DIR}/resources/pf/wp_rect.csv ${ROS2_SRC}/path_following_test/wp_rect.csv
 chmod -R o+rwx ${ROS2_WORKSPACE}
 EchoBoxLine
 
