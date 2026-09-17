@@ -43,15 +43,15 @@ ros2 run realgazebo_fastplanner_adapters px4_lidar_to_odom_cloud --ros-args \
 
 # 2) SUPER planner (config from SOURCE tree: super/super_planner/config/static_realgazebo.yaml)
 ros2 run super_planner fsm_node --ros-args \
-    -p config_name:=static_realgazebo_x8.yaml -p live_mode:=true \
+    -p config_name:=static_realgazebo.yaml -p live_mode:=true \
     2>&1 | tee ${LOGS}/super_fsm.log &
 
 # 3) SUPER poly traj -> PF waypoints (also publishes pp/ca heartbeats)
 ros2 run super_pf_bridge poly_to_waypoints 2>&1 | tee ${LOGS}/super_pf_bridge.log &
 
 # 4) PathFollowing (sim.yaml: wp_type 0, guid_type 2 -> needs MPPI)
-ros2 run pathfollowing node_pathfollowing --ros-args -p vehicle_type:=2 2>&1 | tee ${LOGS}/node_pathfollowing.log &
-ros2 run pathfollowing node_mppi --ros-args -p vehicle_type:=2 2>&1 | tee ${LOGS}/node_mppi.log &
+ros2 run pathfollowing node_pathfollowing 2>&1 | tee ${LOGS}/node_pathfollowing.log &
+ros2 run pathfollowing node_mppi 2>&1 | tee ${LOGS}/node_mppi.log &
 
 # 5) Flight FSM. flight_manager hardcodes vehicle1/fmu/* - remap to this SITL's /fmu/*.
 ros2 run flight_manager flight_manager --ros-args \
