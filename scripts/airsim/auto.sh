@@ -65,7 +65,7 @@ else
                 EchoGreen "[$(basename "$0")] RUNNING ${SH_FILE}..."
 
                 # RUN THE .sh FILE
-                su -c "${SH_FILE} -windowed" ue4 > /home/ue4/workspace/log
+                su -c "${SH_FILE} ${AIRSIM_RENDER_ARGS:--windowed}" ue4 > /home/ue4/workspace/log
             fi
         fi
     fi

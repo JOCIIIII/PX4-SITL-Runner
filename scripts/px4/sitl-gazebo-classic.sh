@@ -40,6 +40,7 @@ ${BASE_DIR}/separateFromGazebo.sh
 
 ${BASE_DIR}/setGCS.sh
 ${BASE_DIR}/setDDS.sh
+${BASE_DIR}/setParams.sh
 
 PX4_SIM_HOST_ADDR=${GAZEBO_CLASSIC_IP} \
     PX4-Autopilot/build/px4_sitl_default/bin/px4 -d
