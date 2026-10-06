@@ -49,13 +49,16 @@ ${BASE_DIR}/airsim-bridge.sh 2>&1 | tee ${WORKSPACE_DIR}/logs/airsim-bridge.log 
 touch ${WORKSPACE_DIR}/logs/foxglove_bridge.log
 ros2 launch foxglove_bridge foxglove_bridge_launch.xml port:=8765 2>&1 | tee ${WORKSPACE_DIR}/logs/foxglove_bridge.log &
 
-# STATIC TF world(ENU, PX4 원점=스폰) -> airsim_world(NED, AirSim 맵 원점).
+# STATIC TF world(ENU, PX4 원점=스폰) -> airsim_world(AirSim 맵 원점).
 # 가시화 정렬용: 원시 AirSim 토픽(TF 루트 airsim_world)이 Foxglove 에서 어댑터의
-# world 프레임과 겹쳐 보이게 한다. 회전 (qx,qy,qz,qw)=(0.7071,0.7071,0,0) = ENU<->NED.
+# world 프레임과 겹쳐 보이게 한다. 회전 없음: AirSim ROS2 래퍼가 내부 NED 를 (x,-y,-z)로
+# 바꿔 내보내고 GazeboDrone 이 Gazebo ENU 를 같은 규약으로 넣으므로 airsim_world 축 =
+# Gazebo world ENU 축 (어댑터 보정 로그의 yaw diff ~0 deg 로 확인).
 # 병진 = -스폰위치(ENU): GAZEBO_POSE (scripts/include/commonEnv.sh) 를 바꾸면 같이 수정.
+# (PX4 EKF 고도 바이어스는 런마다 달라 z 는 0 으로 둔다.)
 ros2 run tf2_ros static_transform_publisher \
     --x 27.5 --y -27.5 --z 0 \
-    --qx 0.7071068 --qy 0.7071068 --qz 0 --qw 0 \
+    --qx 0 --qy 0 --qz 0 --qw 1 \
     --frame-id world --child-frame-id airsim_world \
     > /dev/null 2>&1 &
 

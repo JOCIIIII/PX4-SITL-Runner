@@ -38,6 +38,7 @@ CheckFileExists ${BASE_DIR}/separateFromGazebo.sh
 
 ${BASE_DIR}/setGCS.sh
 ${BASE_DIR}/setDDS.sh
+${BASE_DIR}/setParams.sh
 ${BASE_DIR}/separateFromGazebo.sh airsim
 
 PX4_SIM_HOST_ADDR=${GAZEBO_CLASSIC_IP} \
