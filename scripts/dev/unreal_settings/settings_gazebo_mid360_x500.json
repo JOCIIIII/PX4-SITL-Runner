@@ -1,0 +1,45 @@
+{
+  "SeeDocsAt": "https://cosys-lab.github.io/Cosys-AirSim/settings/",
+  "SettingsVersion": 2.0,
+  "SimMode": "Multirotor",
+  "RecordUIVisible": false,
+  "PhysicsEngineName": "ExternalPhysicsEngine",
+  "PawnPaths": {
+    "S900": {
+      "PawnBP": "Class'/Game/CTrack/Vehicles/BP_S900Pawn.BP_S900Pawn_C'"
+    }
+  },
+  "Vehicles": {
+    "SimpleFlight": {
+      "VehicleType": "SimpleFlight",
+      "AutoCreate": true,
+      "PawnPath": "S900",
+      "Sensors": {
+        "Imu": {
+          "SensorType": 2,
+          "Enabled": true
+        },
+        "RPLIDAR_A3": {
+          "SensorType": 6,
+          "Enabled": true,
+          "PatternFile": "Lidar/mid360_pattern_2s.bin",
+          "PatternFrameRate": 10,
+          "MinRange": 0.1,
+          "GenerateNoise": true,
+          "MinNoiseStandardDeviation": 0.02,
+          "UpdateFrequency": 50,
+          "Range": 40,
+          "X": 0.0,
+          "Y": 0.0,
+          "Z": -0.1,
+          "Roll": 0.0,
+          "Pitch": 0.0,
+          "Yaw": 0.0,
+          "DrawDebugPoints": true,
+          "DataFrame": "SensorLocalFrame",
+          "ExternalController": false
+        }
+      }
+    }
+  }
+}
