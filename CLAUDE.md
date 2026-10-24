@@ -18,22 +18,24 @@ avoidance, PathFollowing MPPI, SUPER planner, a flight driver). The same apps ru
 This repo holds only scripts, configs, airframe models and docs. Sources and binaries come from:
 - `JOCIIIII/A4VAI-Algorithms-ROS2` branch `inhousesim-v1.0` (submodules `A4VAI-PathFollowing`, `super` on their
   `inhousesim-v1.0` branches, `px4_msgs` release/1.16) → `~/Documents/A4VAI-SITL/ROS2/ros2_ws/src`
-- `JOCIIIII/A4VAI-Unreal` tag `inhousesim-v1.0` (sparse checkout) + its release assets (packaged Shipping build,
-  Gazebo binaries) → `~/Documents/A4VAI-SITL/A4VAI-Unreal`
+- `JOCIIIII/A4VAI-Unreal` tag `inhousesim-v1.0` (sparse checkout) + its packaged Shipping build and Gazebo binaries,
+  which are NOT on GitHub: the user copies `CTrackSim-Linux.tar.gz`, `ctrack-gazebo-prebuilt.tar.gz`, `SHA256SUMS`
+  from the lab NAS (InhouseSim v1.0 folder) into `~/Downloads/inhousesim-v1.0` → `~/Documents/A4VAI-SITL/A4VAI-Unreal`
 - PX4-Autopilot v1.16.0 + `A4VAI-Custom-PX4-File` → `~/Documents/A4VAI-SITL/PX4-Autopilot`
 
 ## First steps on a new machine
 
 ```bash
 ./scripts/setup-host.sh     # Docker CE + NVIDIA Container Toolkit (sudo; then log out/in for the docker group)
+# the three C-Track package files from the lab NAS -> ~/Downloads/inhousesim-v1.0 (ask the user if missing)
 ./scripts/install.sh        # everything else, idempotent - re-run after any failure; log in ~/Documents/A4VAI-SITL/logs
 ./scripts/ctrack.sh fly x8_5s first_flight
 ```
 
 Requirements: Ubuntu 22.04 x86_64, NVIDIA driver with Vulkan (the packaged Unreal needs no UE install), a graphical
 session (DISPLAY), ~60 GB disk, python3 (host analysis tools also need `pip3 install --user numpy pyulog`).
-`install.sh` overrides (env): `ROS2_SRC_REPO/BRANCH`, `UNREAL_REPO/REF`, `UNREAL_ASSET_URL`, `UNREAL_ASSET_DIR`
-(local folder with `CTrackSim-Linux.tar.gz`, `ctrack-gazebo-prebuilt.tar.gz`, `SHA256SUMS`).
+`install.sh` overrides (env): `ROS2_SRC_REPO/BRANCH`, `UNREAL_REPO/REF`, `UNREAL_ASSET_DIR` (the folder with the three
+package files, default `~/Downloads/inhousesim-v1.0`), `UNREAL_ASSET_URL` (an HTTP folder serving them instead).
 
 ## C-Track flights (`scripts/ctrack.sh` → `scripts/dev/pils_gate.sh` → `scripts/dev/ctrack_super.sh`)
 

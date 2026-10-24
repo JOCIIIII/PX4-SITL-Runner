@@ -18,8 +18,8 @@ git clone -b inhousesim-v1.0 https://github.com/JOCIIIII/PX4-SITL-Runner.git && 
 
 도커 이미지 pull(전부 Docker Hub 공개) → PX4 v1.16.0 빌드 → ROS2 소스 클론(서브모듈 포함) →
 AirSim ROS2 브리지(Cosys-AirSim 5.4-v3.2) 소스 빌드 → ROS2 워크스페이스 빌드 →
-리소스·AirSim 바이너리(release 자동 다운로드) → C-Track Unreal 시험장(A4VAI-Unreal 릴리스의 패키징 빌드,
-SHA256 확인)까지 전부 자동.
+리소스·AirSim 바이너리(release 자동 다운로드) → C-Track Unreal 시험장(NAS에서 `~/Downloads/inhousesim-v1.0`에
+받아 둔 패키징 빌드, SHA256 확인)까지 전부 자동. NAS 파일 3개는 설치 전에 받아 두어야 한다(README.md 3장).
 각 단계는 멱등이라 실패 시 재실행하면 이어서 진행된다.
 
 ## 실행: 예전 AirSim 숲 (명령 2개)
