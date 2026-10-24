@@ -39,6 +39,13 @@ unset OPAL_PREFIX
 unset OPENMPI_VERSION
 unset OMPI_MCA_coll_hcoll_enable
 
+# setuptools >= 71 calls packaging's canonicalize_version(strip_trailing_zero=...), which needs
+# packaging >= 24; the image pairs setuptools 83 with Ubuntu's packaging 21.3 and every
+# ament_python build then fails ("unexpected keyword argument 'strip_trailing_zero'").
+if ! python3 -c "import inspect, packaging.utils as u; assert 'strip_trailing_zero' in inspect.signature(u.canonicalize_version).parameters" 2>/dev/null; then
+    pip install -q 'packaging>=24.2' 2>/dev/null || EchoYellow "[$(basename "$0")] could not upgrade python packaging - ament_python builds may fail"
+fi
+
 # PREPARE THE BUILD ENVIRONMENT (KEYRING + EXTRA APT DEPS + rosdep).
 # Only needed for full workspace builds, so it is NOT run for single-package builds.
 PrepareBuildEnv() {

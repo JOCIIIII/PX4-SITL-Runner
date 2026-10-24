@@ -30,13 +30,37 @@ source ${ROS2_WS}/install/setup.bash
 export OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 MKL_NUM_THREADS=2 NUMEXPR_NUM_THREADS=2
 
 # PathFollowing (sim.yaml: wp_type 0, guid_type 2 -> needs MPPI)
-ros2 run pathfollowing node_pathfollowing 2>&1 | tee ${LOGS}/node_pathfollowing.log &
-ros2 run pathfollowing node_mppi 2>&1 | tee ${LOGS}/node_mppi.log &
+# PathFollowing vehicle model follows the simulated airframe (envs/gazebo-classic.env
+# SITL_AIRFRAME, copied into ros2.env by run.sh): x8 -> octo.yaml (2), iris -> quad.yaml (1)
+PF_VEHICLE_TYPE=$([ "${SITL_AIRFRAME}" = "x8" ] && echo 2 || echo 1)
+# PF_TEST_SIM_YAML (optional): another PF/MPPI config, e.g. sim_ca_mppi_x8.yaml (the X8 MPPI as flown with
+# the CA policy: 2048 samples, correlated noise, pursuit beyond 90 deg heading error, speed P) - sim.yaml's
+# MPPI stalled on the first 90 deg corner of a square at 1.5 m/s without wind (x8_mppi_wind7_a)
+SIM_YAML_ARG=$([ -n "${PF_TEST_SIM_YAML}" ] && echo "-p sim_yaml:=${PF_TEST_SIM_YAML} -p guid_type:=2")
+# PF_TEST_CORNER=1: corner speed limit + MPPI rollout = PF guidance (GuidanceTuningConfig
+# corner_speed_enable / mppi_rollout_sync), the same for both nodes. PF_TEST_PF_ARGS: more node
+# parameters as name:=value,name:=value (floats with a decimal point), e.g.
+# PF_TEST_PF_ARGS=corner_max_error_m:=1.0,corner_lat_accel_mps2:=5.0
+PF_EXTRA_ARGS=$([ "${PF_TEST_CORNER:-0}" = "1" ] && echo "-p corner_speed_enable:=true -p mppi_rollout_sync:=true")
+for kv in $(echo "${PF_TEST_PF_ARGS:-}" | tr ',' ' '); do
+    PF_EXTRA_ARGS="${PF_EXTRA_ARGS} -p ${kv}"
+done
+ros2 run pathfollowing node_pathfollowing --ros-args -p vehicle_type:=${PF_VEHICLE_TYPE} ${SIM_YAML_ARG} ${PF_EXTRA_ARGS} \
+    2>&1 | tee ${LOGS}/node_pathfollowing.log &
+ros2 run pathfollowing node_mppi --ros-args -p vehicle_type:=${PF_VEHICLE_TYPE} ${SIM_YAML_ARG} ${PF_EXTRA_ARGS} \
+    2>&1 | tee ${LOGS}/node_mppi.log &
+
+# PF_TEST_SPEED [m/s] (optional): MPPI cruise speed instead of sim.yaml's desired_speed (1.5) -
+# node_pathfollowing and node_mppi both take /desired_speed; re-sent at 2 Hz for late joiners.
+if [ -n "${PF_TEST_SPEED}" ]; then
+    ros2 topic pub -r 2 /desired_speed std_msgs/msg/Float32 "{data: $(printf '%.2f' ${PF_TEST_SPEED})}" > /dev/null 2>&1 &
+fi
 
 # Flight FSM + CSV waypoint publisher. Hardcodes vehicle1/fmu/* - remap to /fmu/*.
-# wp_csv_path points at the SOURCE csv so editing it needs no rebuild.
+# wp_csv_path points at the SOURCE csv so editing it needs no rebuild; PF_TEST_WP_CSV (envs/ros2.env
+# or FLY_ENV) points it at another file, e.g. /home/user/workspace/ros2/test_runs/<file>.csv.
 ros2 run path_following_test path_following_test --ros-args \
-    -p wp_csv_path:=${ROS2_WS}/src/path_following_test/wp.csv \
+    -p wp_csv_path:=${PF_TEST_WP_CSV:-${ROS2_WS}/src/path_following_test/wp.csv} \
     -r /vehicle1/fmu/in/offboard_control_mode:=/fmu/in/offboard_control_mode \
     -r /vehicle1/fmu/in/trajectory_setpoint:=/fmu/in/trajectory_setpoint \
     -r /vehicle1/fmu/in/vehicle_attitude_setpoint:=/fmu/in/vehicle_attitude_setpoint \
