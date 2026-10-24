@@ -12,7 +12,7 @@ source ${BASE_DIR}/include/commonFcn.sh
 source ${BASE_DIR}/include/commonEnv.sh
 
 EchoYellow "[uninstall.sh] THIS WILL REMOVE:"
-EchoYellow "*   all SITL containers (px4-env, gz-sim, airsim-binary, ros2-env, qgc-app)"
+EchoYellow "*   all SITL containers (px4-env, gz-sim, airsim-binary, ros2-env, qgc-app, ctrack-sitl) and the C-Track Unreal simulator"
 EchoYellow "*   the ${SITL_NETWORK_NAME} docker network"
 EchoYellow "*   the deployed workspace ${SITL_DEPLOY_DIR}"
 EchoYellow "    (PX4 build, ROS2 workspaces, AirSim binary - EVERYTHING under it)"
@@ -20,6 +20,7 @@ WarnAction
 
 # 1) CONTAINERS + NETWORK
 EchoGreen "[uninstall.sh] STOPPING CONTAINERS"
+${BASE_DIR}/ctrack.sh stop >/dev/null 2>&1          # the C-Track Unreal simulator, ctrack-sitl, ctrack-ros2
 docker rm -f px4-env gz-sim airsim-binary ros2-env qgc-app >/dev/null 2>&1
 docker network rm ${SITL_NETWORK_NAME} >/dev/null 2>&1
 EchoGreen "[uninstall.sh] CONTAINERS AND NETWORK REMOVED."

@@ -1,5 +1,7 @@
 # A4VAI SITL 설치 및 실행 매뉴얼
 
+> v1.0의 기본 흐름(C-Track Unreal 시험장, PILS)은 `README.md` 4–5장에 있습니다. 이 문서는 설치 세부와 예전 AirSim 숲 흐름입니다.
+
 ## 요구사항
 
 - Ubuntu 22.04 (x86_64), NVIDIA GPU + **드라이버**(사전 설치: `sudo ubuntu-drivers autoinstall` 후 재부팅), 디스플레이(그래픽 세션 필수)
@@ -9,17 +11,18 @@
 ## 설치 (명령 2개)
 
 ```bash
-git clone -b runtime https://github.com/JOCIIIII/PX4-SITL-Runner.git && cd PX4-SITL-Runner
+git clone -b inhousesim-v1.0 https://github.com/JOCIIIII/PX4-SITL-Runner.git && cd PX4-SITL-Runner
 ./scripts/setup-host.sh     # 호스트 사전준비: Docker + NVIDIA Container Toolkit (sudo, 1회)
 ./scripts/install.sh        # 시뮬레이터 설치 (docker 그룹 추가됐다면 재로그인 후)
 ```
 
 도커 이미지 pull(전부 Docker Hub 공개) → PX4 v1.16.0 빌드 → ROS2 소스 클론(서브모듈 포함) →
 AirSim ROS2 브리지(Cosys-AirSim 5.4-v3.2) 소스 빌드 → ROS2 워크스페이스 빌드 →
-리소스·AirSim 바이너리(release 자동 다운로드)까지 전부 자동.
+리소스·AirSim 바이너리(release 자동 다운로드) → C-Track Unreal 시험장(A4VAI-Unreal 릴리스의 패키징 빌드,
+SHA256 확인)까지 전부 자동.
 각 단계는 멱등이라 실패 시 재실행하면 이어서 진행된다.
 
-## 실행 (명령 2개)
+## 실행: 예전 AirSim 숲 (명령 2개)
 
 ```bash
 ./scripts/run-integrated-algorithm.sh      # ① SUPER + PathFollowing — 라이다 맵핑·충돌회피 비행
@@ -63,4 +66,5 @@ docker run --rm --entrypoint bash -v ~/Documents/A4VAI-SITL/ROS2:/home/user/work
 | `container name already in use` | `docker rm -f px4-env gz-sim airsim-binary ros2-env qgc-app` |
 | AirSim이 `libApex...so` 에러로 종료 | binary 패키지 불완전 — `Engine/` 포함 전체 패키지로 교체 |
 | airsim_node가 `invalid allocator`로 종료 | 브리지가 구버전 빌드 — `rm -rf ~/Documents/A4VAI-SITL/ROS2/cosys-airsim/ros2/{build,install}` 후 install.sh 재실행 |
+| C-Track `fly` 가 Unreal 을 못 띄움 | `~/Documents/A4VAI-SITL/logs/ctrack_unreal.log` 확인, `./scripts/ctrack.sh stop` 후 재시도 |
 | 수정한 env/스크립트가 반영 안 됨 | `~/Documents/A4VAI-SITL/` 쪽은 매 실행마다 저장소 사본으로 덮어써짐 — **저장소에서 수정**할 것 |

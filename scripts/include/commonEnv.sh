@@ -27,4 +27,6 @@ GAZEBO_CLASSIC_WORKSPACE=${SITL_DEPLOY_DIR}/Gazebo-Classic
 AIRSIM_WORKSPACE=${SITL_DEPLOY_DIR}/AirSim
 ROS2_WORKSPACE=${SITL_DEPLOY_DIR}/ROS2
 QGC_WORKSPACE=${SITL_DEPLOY_DIR}/QGroundControl
+# C-Track Unreal field: A4VAI-Unreal (sparse checkout) + its packaged build (scripts/install.sh stage 8)
+CTRACK_UNREAL_DIR=${SITL_DEPLOY_DIR}/A4VAI-Unreal
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<

@@ -78,7 +78,13 @@ if [ "$MODE" = pils ]; then
 fi
 REPO=$(dirname $(dirname $(dirname $(readlink -f "$0"))))
 W=~/Documents/A4VAI-SITL
-CTRACK=${CTRACK_DIR:-$HOME/Desktop/00_Project/00_A4VAI/00_Development/00_Simulator/02_InhouseSim/Unreal}
+# the C-Track Unreal folder (A4VAI-Unreal): CTRACK_DIR, else the one scripts/install.sh put next to the workspace,
+# else the developers' editor checkout
+if [ -z "${CTRACK_DIR:-}" ]; then
+    CTRACK_DIR=$W/A4VAI-Unreal
+    [ -d "$CTRACK_DIR" ] || CTRACK_DIR=$HOME/Desktop/00_Project/00_A4VAI/00_Development/00_Simulator/02_InhouseSim/Unreal
+fi
+CTRACK=$CTRACK_DIR
 # CTRACK_MAP: CTrack (default) or Yard - the Inha aerospace campus courtyard from a SLAM scan (waypoints START,
 # GOAL; tree canopies from 2-3 m up). Start Unreal on the same map: CTRACK_MAP=Yard $CTRACK/run_unreal.sh ...
 MAP=$(basename "${CTRACK_MAP:-CTrack}")

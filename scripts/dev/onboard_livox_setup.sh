@@ -5,9 +5,9 @@
 #   2. livox_ros_driver2 built in its own workspace ~/Documents/A4VAI-SITL/ROS2/livox_ws, in that image, with the
 #      workspace mounted where it runs (scripts/ros2/onboard-real.sh sources it)
 # The sources are cloned here and copied over (GitHub from orin-nano-01 stalled). Idempotent.
-#   scripts/dev/onboard_livox_setup.sh [user@host]      default jetson@192.168.219.152
+#   scripts/dev/onboard_livox_setup.sh user@host
 set -eu
-HOST=${1:-jetson@192.168.219.152}
+HOST=${1:?usage: onboard_livox_setup.sh user@host (the Jetson)}
 RWS=Documents/A4VAI-SITL/ROS2
 BASE=${PILS_IMAGE:-a4vai-pils:humble}
 IMG=${ONBOARD_REAL_IMAGE:-a4vai-onboard:humble}

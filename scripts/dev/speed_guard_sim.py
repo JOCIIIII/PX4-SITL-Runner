@@ -52,8 +52,16 @@ warnings.filterwarnings('ignore')
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'ros2', 'apps'))
 from super_speed_guard import GuardCore  # noqa: E402
 
-LAYOUT = os.path.expanduser('~/Desktop/00_Project/00_A4VAI/00_Development/00_Simulator/'
-                            '02_InhouseSim/Unreal/layout/ctrack_layout.json')
+def _ctrack_dir():
+    """CTRACK_DIR, else the installed A4VAI-Unreal (scripts/install.sh), else the developers' checkout"""
+    for d in (os.environ.get('CTRACK_DIR', ''), '~/Documents/A4VAI-SITL/A4VAI-Unreal',
+              '~/Desktop/00_Project/00_A4VAI/00_Development/00_Simulator/02_InhouseSim/Unreal'):
+        if d and os.path.isdir(os.path.expanduser(d)):
+            return os.path.expanduser(d)
+    return os.path.expanduser('~/Documents/A4VAI-SITL/A4VAI-Unreal')
+
+
+LAYOUT = os.path.join(_ctrack_dir(), 'layout', 'ctrack_layout.json')
 AZ = np.radians(np.arange(192) * 360.0 / 192)
 EL = np.radians(-7.0 + np.arange(32) * 59.0 / 31)
 DIRS = np.stack([np.cos(EL)[:, None] * np.cos(AZ)[None], np.cos(EL)[:, None] * np.sin(AZ)[None],

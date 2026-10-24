@@ -3,8 +3,9 @@
 # scripts/dev/onboard_real.sh fly sources on the vehicle) flown on C-Track with the apps on the onboard computer
 # (PILS: scripts/dev/pils_onboard.sh there), flight_driver included.
 #   scripts/dev/pils_gate.sh PROFILE NAME [FROM GOAL ALT SPEED TIMEOUT]   (default WP3 GOAL 1.7 5.0 480)
-# env: CTRACK_MODE (pils, default | sils = the same apps on this PC), ONBOARD_IP / ONBOARD_SSH (default the Jetson
-#      over Tailscale, 100.64.0.135 - then PILS_LINK=wan, see ctrack_super.sh; on the lab LAN 192.168.219.152),
+# env: CTRACK_MODE (pils, default | sils = the same apps on this PC), ONBOARD_IP (pils: required - the onboard
+#      computer's address; a Tailscale 100.x address selects PILS_LINK=wan, see ctrack_super.sh), ONBOARD_SSH
+#      (user@host: start/stop the onboard side over ssh; without it the harness prints the onboard command),
 #      PILS_DOMAIN (default 37)
 # Unreal must run with the airframe's lidar mount: X500 settings_gazebo_mid360_x500.json, X8 settings_gazebo_mid360.json
 # (A4VAI-Unreal run_unreal.sh). The Jetson needs the current scripts and flight_driver built:
@@ -24,7 +25,9 @@ while IFS='=' read -r k v; do
 done < "$P"
 export CTRACK_APP=noclimb_ca SIM_LIDAR=${SIM_LIDAR:-mid360} CTRACK_MODE=${CTRACK_MODE:-pils}
 if [ "$CTRACK_MODE" = pils ]; then
-    export ONBOARD_IP=${ONBOARD_IP:-100.64.0.135} ONBOARD_SSH=${ONBOARD_SSH:-jetson@100.64.0.135} PILS_DOMAIN=${PILS_DOMAIN:-37}
+    : ${ONBOARD_IP:?PILS needs ONBOARD_IP (the onboard computer, e.g. its Tailscale or LAN address) and usually ONBOARD_SSH=user@host}
+    export ONBOARD_IP PILS_DOMAIN=${PILS_DOMAIN:-37}
+    [ -n "${ONBOARD_SSH:-}" ] && export ONBOARD_SSH
     # Tailscale (100.64/10, e.g. the Jetson on its 5G tether): the routed-link PILS (ctrack_super.sh PILS_LINK)
     case "$ONBOARD_IP" in 100.*) export PILS_LINK=${PILS_LINK:-wan} ;; *) export PILS_LINK=${PILS_LINK:-lan} ;; esac
 fi

@@ -1,8 +1,6 @@
 .vscode/
 scripts/ros2/.vscode/
-
 .claude/
-CLAUDE.md
 CLAUDE.local.md
 __pycache__/
 *.pyc
