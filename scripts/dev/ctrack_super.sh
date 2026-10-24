@@ -179,16 +179,20 @@ if ! grep -q -- "-x $SX -y $SY" "$ENTRY"; then
     echo "[ctrack] spawn line not found in $CTRACK/gazebo/ctrack_sitl_entry.sh"; exit 1
 fi
 SITL_ENV=()
+# PX4's uXRCE-DDS client goes to the agent of the apps: SILS the ros2-env container (172.70.0.5 on ctrack-ros2), PILS
+# the onboard computer. PX4 runs on a copy of the build's etc/ whose rcS names it (the read-only build stays as it is:
+# a fresh build's rcS says 127.0.0.1, only the compose flow's scripts/px4/setDDS.sh rewrites it to 172.70.0.5)
+AGENT_IP=172.70.0.5
+SYNC_OFF=
 if [ "$MODE" = pils ]; then
-    # PX4 reads ROS_DOMAIN_ID as its DDS domain; its uXRCE client goes to the onboard computer: run PX4 on a
-    # copy of the build's etc/ whose rcS names ONBOARD_IP (the read-only build keeps the SILS target)
-    SITL_ENV=(-e ROS_DOMAIN_ID=$PILS_DOMAIN)
-    LAUNCH='${PX4_BUILD}/bin/px4 -d -w /tmp/px4_rootfs ${PX4_BUILD}/etc'
-    grep -qF "$LAUNCH" "$ENTRY" || { echo "[ctrack] PX4 launch line not found in the entry script"; exit 1; }
+    SITL_ENV=(-e ROS_DOMAIN_ID=$PILS_DOMAIN)          # PX4 reads ROS_DOMAIN_ID as its DDS domain
+    AGENT_IP=$ONBOARD_IP
     SYNC_OFF=$([ "${PILS_LINK:-lan}" = wan ] && echo 'param set UXRCE_DDS_SYNCT 0; ')
-    sed -i "s|\${PX4_BUILD}/bin/px4 -d -w /tmp/px4_rootfs \${PX4_BUILD}/etc|rm -rf /tmp/px4_etc; cp -r \${PX4_BUILD}/etc /tmp/px4_etc; sed -i 's/^uxrce_dds_client start .*/${SYNC_OFF}uxrce_dds_client start -t udp -h $ONBOARD_IP -p \$uxrce_dds_port \$uxrce_dds_ns/' /tmp/px4_etc/init.d-posix/rcS; \${PX4_BUILD}/bin/px4 -d -w /tmp/px4_rootfs /tmp/px4_etc|" "$ENTRY"
-    grep -q "/tmp/px4_etc" "$ENTRY" || { echo "[ctrack] could not point PX4's DDS client at $ONBOARD_IP"; exit 1; }
 fi
+LAUNCH='${PX4_BUILD}/bin/px4 -d -w /tmp/px4_rootfs ${PX4_BUILD}/etc'
+grep -qF "$LAUNCH" "$ENTRY" || { echo "[ctrack] PX4 launch line not found in the entry script"; exit 1; }
+sed -i "s|\${PX4_BUILD}/bin/px4 -d -w /tmp/px4_rootfs \${PX4_BUILD}/etc|rm -rf /tmp/px4_etc; cp -r \${PX4_BUILD}/etc /tmp/px4_etc; sed -i 's/^uxrce_dds_client start .*/${SYNC_OFF}uxrce_dds_client start -t udp -h $AGENT_IP -p \$uxrce_dds_port \$uxrce_dds_ns/' /tmp/px4_etc/init.d-posix/rcS; \${PX4_BUILD}/bin/px4 -d -w /tmp/px4_rootfs /tmp/px4_etc|" "$ENTRY"
+grep -q "/tmp/px4_etc" "$ENTRY" || { echo "[ctrack] could not point PX4's DDS client at $AGENT_IP"; exit 1; }
 MIRROR=$(python3 -c "import json,sys; print(','.join(m['name'] for m in json.load(open(sys.argv[1])).get('moving_obstacles', [])))" "$LAYOUT")
 mkdir -p "$OUT/ctrack_logs"
 # GazeboDrone has to mirror the x8 into AirSim before anything flies: sometimes it connects but never gets
