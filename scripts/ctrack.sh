@@ -98,6 +98,15 @@ case "$CMD" in
             echo "[ctrack] pils needs ONBOARD_IP=<onboard computer address> (and ONBOARD_SSH=user@host to start it from here)"
             exit 1
         fi
+        # the compose stack's network (scripts/run.sh, also left by install.sh's PX4 build) takes the same 172.70/16
+        if docker network inspect "$SITL_NETWORK_NAME" > /dev/null 2>&1; then
+            if [ "$(docker network inspect -f '{{len .Containers}}' "$SITL_NETWORK_NAME")" = 0 ]; then
+                docker network rm "$SITL_NETWORK_NAME" > /dev/null
+            else
+                echo "[ctrack] the A4VAI-SITL compose stack is running ($SITL_NETWORK_NAME) - stop it first: ./scripts/stop.sh <profile>"
+                exit 1
+            fi
+        fi
         unreal_start "$AF" "${CTRACK_MAP:-CTrack}" || exit 1
         export CTRACK_MAP=${CTRACK_MAP:-CTrack} CTRACK_DIR=$CTRACK
         shift 3
