@@ -13,15 +13,15 @@
 #      (/home/user/workspace/ros2 - colcon keeps absolute paths): cv_bridge (an underlay the bridge's
 #      setup.bash chains), the bridge, then px4_msgs .. flight_manager, flight_driver, pathfollowing, the lidar adapter
 #
-#   scripts/dev/pils_jetson_setup.sh [user@host]      default jetson@192.168.219.152 (orin-nano-01, LAN)
-# env: PILS_BASE_IMAGE (default ros2-px4-jetson:humble-a4vai-hybrid), PILS_IMAGE (default a4vai-pils:humble),
+#   scripts/dev/pils_jetson_setup.sh user@host
+# env: PILS_BASE_IMAGE (default a4vai-base:humble, from scripts/dev/jetson_base_setup.sh), PILS_IMAGE (default a4vai-pils:humble),
 #      PILS_SKIP_BUILD=1 (sync only - scripts, sources, policy bundles; python changes need no build)
 set -eu
-HOST=${1:-jetson@192.168.219.152}
+HOST=${1:?usage: pils_jetson_setup.sh user@host (the Jetson)}
 REPO=$(dirname $(dirname $(dirname $(readlink -f "$0"))))
 WS=$HOME/Documents/A4VAI-SITL/ROS2
 RWS=Documents/A4VAI-SITL/ROS2          # there, relative to the login's home
-BASE=${PILS_BASE_IMAGE:-ros2-px4-jetson:humble-a4vai-hybrid}
+BASE=${PILS_BASE_IMAGE:-a4vai-base:humble}
 IMG=${PILS_IMAGE:-a4vai-pils:humble}
 MNT=/home/user/workspace/ros2
 on() { ssh -o BatchMode=yes "$HOST" "$@"; }

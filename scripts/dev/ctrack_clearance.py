@@ -23,8 +23,16 @@ import os
 
 import numpy as np
 
-DEF_LAYOUT = os.path.expanduser('~/Desktop/00_Project/00_A4VAI/00_Development/00_Simulator/'
-                                '02_InhouseSim/Unreal/layout/ctrack_layout.json')
+def _ctrack_dir():
+    """CTRACK_DIR, else the installed A4VAI-Unreal (scripts/install.sh), else the developers' checkout"""
+    for d in (os.environ.get('CTRACK_DIR', ''), '~/Documents/A4VAI-SITL/A4VAI-Unreal',
+              '~/Desktop/00_Project/00_A4VAI/00_Development/00_Simulator/02_InhouseSim/Unreal'):
+        if d and os.path.isdir(os.path.expanduser(d)):
+            return os.path.expanduser(d)
+    return os.path.expanduser('~/Documents/A4VAI-SITL/A4VAI-Unreal')
+
+
+DEF_LAYOUT = os.path.join(_ctrack_dir(), 'layout', 'ctrack_layout.json')
 
 
 def box_dist(px, py, cx, cy, sx, sy, yaw_deg):
