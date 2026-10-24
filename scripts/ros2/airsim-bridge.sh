@@ -33,8 +33,13 @@ source ${WORKSPACE_DIR}/airsim/install/setup.bash
 
 EchoYellow "[$(basename $0)] STARRTING AIRSIM ROS2 BRIDGE."
 
-while ! grep -q "SimpleFlight" /home/user/workspace/airsim/log; do
-    EchoYellow "[$(basename $0)] WAITING FOR THE AIRSIM TO START."
+# Wait for AirSim's RPC server itself, not its log. airsim_node connects once: refused (AirSim
+# container up, port not open yet) it never retries and prints "Waiting for connection - XXX"
+# forever - no lidar, nothing takes off. The log on the shared volume still holds the previous
+# run's "SimpleFlight" until AirSim's auto.sh clears it, so whenever this container won the
+# start race the old check passed at once (~1 in 5 launches failed this way).
+EchoYellow "[$(basename $0)] WAITING FOR THE AIRSIM API AT ${AIRSIM_IP}:41451."
+until timeout 2 bash -c "exec 3<>/dev/tcp/${AIRSIM_IP}/41451" 2>/dev/null; do
     sleep 0.5
 done
 
