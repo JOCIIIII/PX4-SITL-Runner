@@ -130,6 +130,13 @@ C-Track과 동시에 돌리지 마세요(둘 다 172.70.0.0/16 네트워크를 �
 | [A4VAI-Algorithms-ROS2](https://github.com/JOCIIIII/A4VAI-Algorithms-ROS2) | ROS2 알고리즘: 학습 회피 정책, flight_driver, PathFollowing·SUPER(서브모듈), T1000(전북대) |
 | [A4VAI-Unreal](https://github.com/JOCIIIII/A4VAI-Unreal) | C-Track·Yard 시험장 (UE 5.8 + Cosys-AirSim 3.5). 릴리스에 패키징 빌드 |
 
+## 검증 (2026-10-24, 빈 홈 폴더에서 새로 설치)
+
+- 설치: 7분 30초 (도커 이미지가 이미 있는 PC, PX4·ROS2·브리지 빌드와 Unreal 패키지 설치 포함)
+- SILS `x8_5s`, 패키징된 Unreal: 착륙, 최소 여유 +0.51 m (나무 벽), 평균 3.26 m/s, 목표 오차 0.66 m
+- PILS 루프백(`ONBOARD_IP=127.0.0.1`, 같은 PC에서 온보드 쪽 실행) `x8_5s`: 착륙, 최소 여유 +1.22 m, 목표 오차 0.50 m
+- Jetson PILS는 v1.0 이전 스크립트로 orin-nano-01/02에서 검증했습니다(`scripts/dev/flight_profiles/README.md`).
+
 ## License
 
 MIT — [LICENSE](./LICENSE)
