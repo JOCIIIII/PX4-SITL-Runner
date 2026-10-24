@@ -443,6 +443,10 @@ SetRunModeROS2() {
     CheckFileExists ${ROS2_WORKSPACE}/scripts/${RUN_SCRIPT}
     CheckFileExecutable ${ROS2_WORKSPACE}/scripts/${RUN_SCRIPT}
 
+    # THE ROS2 APPS FOLLOW THE SIMULATED AIRFRAME (PathFollowing vehicle_type, SUPER limits)
+    local AIRFRAME=$(source ${SITL_ENV_DIR}/gazebo-classic.env; echo "${SITL_AIRFRAME:-iris}")
+    sed -i "s~SITL_AIRFRAME=\"\"~SITL_AIRFRAME=\"${AIRFRAME}\"~" ${SITL_ENV_DIR}/ros2.env
+
     # IF BUILD_TARGETS IS PRESENT
     if [ -z "${BUILD_TARGETS}" ]; then
         sed -i "s~ROS2_RUN_COMMAND=\"\"~ROS2_RUN_COMMAND=\'bash -c \"/home/user/workspace/ros2/scripts/${RUN_SCRIPT}\"\'~g" ${SITL_ENV_DIR}/ros2.env

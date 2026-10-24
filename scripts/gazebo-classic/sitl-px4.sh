@@ -34,6 +34,12 @@ for windVar in windVelocityMean windVelocityMax windVelocityVariance \
                windGustDirectionMean windGustDirectionVariance; do
     sed -i "s|<${windVar}>[^<]*</${windVar}>|<${windVar}>${!windVar}</${windVar}>|" "${WINDY_WORLD}"
 done
+# PHYSICS AS IN GAZEBO'S BUILT-IN worlds/empty.world (ODE defaults: 1 kHz, 50 iterations) INSTEAD OF
+# windy.world's 250 Hz / 10: while SITL_WORLD was "windy.world" gzserver could not open windy.world.world
+# and fell back on that world, so every earlier run (and the x8 model / IMU patches) used these values.
+sed -i -e "s|<max_step_size>[^<]*</max_step_size>|<max_step_size>0.001</max_step_size>|" \
+       -e "s|<real_time_update_rate>[^<]*</real_time_update_rate>|<real_time_update_rate>1000</real_time_update_rate>|" \
+       -e "s|<iters>[^<]*</iters>|<iters>50</iters>|" "${WINDY_WORLD}"
 
 source /usr/share/gazebo/setup.bash
 export GAZEBO_RESOURCE_PATH=${GAZEBO_RESOURCE_PATH}:${GAZEBO_WORKSPACE}/worlds
