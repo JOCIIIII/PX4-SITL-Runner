@@ -18,9 +18,13 @@
 #   7. runtime resources (settings.json, GazeboDrone, AirSim forest binary)
 #   8. C-Track Unreal simulator (A4VAI-Unreal at UNREAL_REF + its packaged build, no Unreal Engine needed)
 #
-# Overrides (environment): ROS2_SRC_REPO, ROS2_SRC_BRANCH, UNREAL_REPO, UNREAL_REF, UNREAL_ASSET_URL,
-#   UNREAL_ASSET_DIR (a folder with CTrackSim-Linux.tar.gz, ctrack-gazebo-prebuilt.tar.gz, SHA256SUMS -
-#   used instead of downloading them).
+# The C-Track packaged build is not on GitHub (too big for the web upload): copy the three files
+#   CTrackSim-Linux.tar.gz, ctrack-gazebo-prebuilt.tar.gz, SHA256SUMS
+# from the lab NAS (InhouseSim v1.0 folder) into ~/Downloads/inhousesim-v1.0 before running this (README.md 3).
+#
+# Overrides (environment): ROS2_SRC_REPO, ROS2_SRC_BRANCH, UNREAL_REPO, UNREAL_REF,
+#   UNREAL_ASSET_DIR (the folder with the three files, default ~/Downloads/inhousesim-v1.0),
+#   UNREAL_ASSET_URL (instead: an HTTP(S) folder serving the three files, e.g. a NAS web share).
 #
 # The single ROS2 image (ROS2_ENV_IMAGE in envs/ros2.env) is devel-grade:
 # it both RUNS the sim and BUILDS the workspaces - no separate build image.
@@ -40,11 +44,11 @@ LogToFile install "$0" "$@"
 ROS2_SRC_REPO=${ROS2_SRC_REPO:-"https://github.com/JOCIIIII/A4VAI-Algorithms-ROS2.git"}
 ROS2_SRC_BRANCH=${ROS2_SRC_BRANCH:-"inhousesim-v1.0"}
 # C-Track Unreal field (UE 5.8 + Cosys-AirSim 3.5): the repo (Gazebo entry, layouts, settings, run_unreal.sh)
-# and the release assets built from the same commit by its package.sh
+# and the packaged build made from the same commit by its package.sh (distributed on the lab NAS)
 UNREAL_REPO=${UNREAL_REPO:-"https://github.com/JOCIIIII/A4VAI-Unreal.git"}
 UNREAL_REF=${UNREAL_REF:-"inhousesim-v1.0"}
-UNREAL_ASSET_URL=${UNREAL_ASSET_URL:-"https://github.com/JOCIIIII/A4VAI-Unreal/releases/download/${UNREAL_REF}"}
-UNREAL_ASSET_DIR=${UNREAL_ASSET_DIR:-""}
+UNREAL_ASSET_DIR=${UNREAL_ASSET_DIR:-"${HOME}/Downloads/inhousesim-v1.0"}
+UNREAL_ASSET_URL=${UNREAL_ASSET_URL:-""}
 UNREAL_DIR=${CTRACK_UNREAL_DIR}
 COSYS_REPO="https://github.com/Cosys-Lab/Cosys-AirSim.git"
 COSYS_TAG="5.4-v3.2"                       # must match the AirSim Unreal binary
@@ -79,6 +83,12 @@ if docker network inspect ctrack-ros2 >/dev/null 2>&1; then
     docker network rm ctrack-ros2 >/dev/null 2>&1 || Fail "a C-Track flight is running (network ctrack-ros2 in use) - ./scripts/ctrack.sh stop, then re-run"
 fi
 command -v sha256sum >/dev/null || Fail "sha256sum not found"
+# the C-Track package comes from the NAS: say so now, not after the builds
+if [ ! -x ${UNREAL_DIR}/packaged/CTrackSim-Linux/CTrackSim.sh ] && [ -z "${UNREAL_ASSET_URL}" ]; then
+    for a in SHA256SUMS CTrackSim-Linux.tar.gz ctrack-gazebo-prebuilt.tar.gz; do
+        [ -f "${UNREAL_ASSET_DIR}/${a}" ] || Fail "${UNREAL_ASSET_DIR}/${a} not found - copy CTrackSim-Linux.tar.gz, ctrack-gazebo-prebuilt.tar.gz and SHA256SUMS from the lab NAS (InhouseSim v1.0) into ${UNREAL_ASSET_DIR} (or set UNREAL_ASSET_DIR), then re-run"
+    done
+fi
 EchoBoxLine
 
 # ---- 2. DOCKER IMAGES -------------------------------------------------------
@@ -195,7 +205,7 @@ fi
 EchoBoxLine
 
 # ---- 8. C-TRACK UNREAL SIMULATOR ---------------------------------------------
-EchoGreen "[install.sh] [8/8] C-TRACK UNREAL SIMULATOR (A4VAI-Unreal ${UNREAL_REF}, packaged build)"
+EchoGreen "[install.sh] [8/8] C-TRACK UNREAL SIMULATOR (A4VAI-Unreal ${UNREAL_REF}, packaged build from ${UNREAL_ASSET_URL:-${UNREAL_ASSET_DIR}})"
 if [ ! -d ${UNREAL_DIR}/.git ]; then
     # only what the packaged build needs next to it (Gazebo entry/world, layouts, settings, run_unreal.sh):
     # Content/ (the editor project, ~0.8 GB) is not checked out
@@ -208,15 +218,18 @@ if [ ! -x ${UNREAL_DIR}/packaged/CTrackSim-Linux/CTrackSim.sh ] || [ ! -x ${UNRE
     mkdir -p ${ASSETS}
     for a in SHA256SUMS CTrackSim-Linux.tar.gz ctrack-gazebo-prebuilt.tar.gz; do
         [ -f ${ASSETS}/${a} ] && continue
-        if [ -n "${UNREAL_ASSET_DIR}" ]; then
-            cp "${UNREAL_ASSET_DIR}/${a}" ${ASSETS}/${a} || Fail "${UNREAL_ASSET_DIR}/${a} not found"
-        else
-            EchoGreen "[install.sh] DOWNLOADING ${a} (C-Track packaged build is ~400 MB)..."
+        if [ -f "${UNREAL_ASSET_DIR}/${a}" ]; then
+            cp "${UNREAL_ASSET_DIR}/${a}" ${ASSETS}/${a} || Fail "copying ${UNREAL_ASSET_DIR}/${a} failed"
+        elif [ -n "${UNREAL_ASSET_URL}" ]; then
+            EchoGreen "[install.sh] DOWNLOADING ${a} (the packaged build is ~400 MB)..."
             wget -q --show-progress ${UNREAL_ASSET_URL}/${a} -O ${ASSETS}/${a}.part && mv ${ASSETS}/${a}.part ${ASSETS}/${a} || \
                 Fail "download failed: ${UNREAL_ASSET_URL}/${a}"
+        else
+            Fail "${UNREAL_ASSET_DIR}/${a} not found - copy CTrackSim-Linux.tar.gz, ctrack-gazebo-prebuilt.tar.gz and SHA256SUMS from the lab NAS (InhouseSim v1.0) into ${UNREAL_ASSET_DIR} (or set UNREAL_ASSET_DIR), then re-run"
         fi
     done
-    (cd ${ASSETS} && sha256sum -c --quiet SHA256SUMS) || { rm -f ${ASSETS}/*.tar.gz; Fail "checksum mismatch - re-run to download again"; }
+    (cd ${ASSETS} && sha256sum -c --quiet SHA256SUMS) || \
+        { rm -f ${ASSETS}/*; Fail "checksum mismatch - copy the three files from the NAS again, then re-run"; }
     mkdir -p ${UNREAL_DIR}/packaged
     rm -rf ${UNREAL_DIR}/packaged/CTrackSim-Linux
     tar -xzf ${ASSETS}/CTrackSim-Linux.tar.gz -C ${UNREAL_DIR}/packaged || Fail "extracting the packaged build failed"
