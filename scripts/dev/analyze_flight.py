@@ -89,6 +89,22 @@ def consensus_map(runs, r=0.3, k=2):
     return np.concatenate(keep)
 
 
+def confirmed_map(run, others, k, r=0.3):
+    # this run's own voxels that at least k of the other runs' maps also contain (within r):
+    # keeps obstacles the run itself saw (the consensus of other runs misses places they did
+    # not fly near) while dropping its one-off mis-registered voxels
+    own = truth_map(run)
+    if own is None or not own.size:
+        return None
+    votes = np.zeros(len(own), dtype=int)
+    for o in others:
+        m = truth_map(o)
+        if m is not None and m.size:
+            d, _ = cKDTree(m).query(own, distance_upper_bound=r)
+            votes += np.isfinite(d)
+    return own[votes >= k]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('run')
@@ -99,6 +115,8 @@ def main():
     ap.add_argument('--max-obs-range', type=float, default=0.0,
                     help='only obstacles seen from within this range [m] (maps with r_min); '
                          'far-range registration error places phantom voxels near the path')
+    ap.add_argument('--confirm', type=int, default=0,
+                    help='also report clearance to own-map voxels confirmed by >= K of the --ref maps')
     ap.add_argument('--phase', choices=('all', 'flight', 'landing'), default='flight',
                     help='clearance over the offboard flight (default), the AUTO_LAND descent, or both')
     a = ap.parse_args()
@@ -185,7 +203,10 @@ def main():
         if Ac.size:
             print(f'  [{a.phase}] truth alt[min {Ac[:, 2].min():.1f} max {Ac[:, 2].max():.1f}]  offset {np.round(air_offset(d), 2).tolist()}')
         refs = [r for r in a.ref if os.path.abspath(r) != os.path.abspath(d)]
-        for label, pts in (('ref', consensus_map(refs) if refs else None), ('own', truth_map(d))):
+        maps = [('ref', consensus_map(refs) if refs else None), ('own', truth_map(d))]
+        if a.confirm > 0 and refs:
+            maps.append((f'own+{a.confirm}', confirmed_map(d, refs, a.confirm)))
+        for label, pts in maps:
             if pts is None or not pts.size or not Ac.size:
                 continue
             obs = pts[pts[:, 2] > a.ground_z]
