@@ -10,9 +10,10 @@ export NO_PXH=1
 # SELECT THE PX4 AIRFRAME ID FROM SITL_AIRFRAME (set in envs/gazebo-classic.env)
 case "${SITL_AIRFRAME:-x8}" in
     x8)   export PX4_SYS_AUTOSTART=2000  ;;
+    x500) export PX4_SYS_AUTOSTART=2001  ;;
     iris) export PX4_SYS_AUTOSTART=10015 ;;
     *)
-        echo "[$(basename "$0")] ERROR: unsupported SITL_AIRFRAME='${SITL_AIRFRAME}'. Valid options: x8, iris."
+        echo "[$(basename "$0")] ERROR: unsupported SITL_AIRFRAME='${SITL_AIRFRAME}'. Valid options: x8, x500, iris."
         exit 1
         ;;
 esac

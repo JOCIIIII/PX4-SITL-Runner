@@ -66,12 +66,23 @@ else
     sed -i "${START_LINE},\$d" PX4-Autopilot/Tools/simulation/gazebo-classic/sitl_run.sh
 
 if [ "$1x" == "airsimx" ]; then
+# Runs in the Gazebo container (AIRSIM_IP is set there, not here: escaped so it expands at run
+# time). GazeboDrone connects to AirSim once and never retries, like the ROS bridge - wait for
+# AirSim's RPC port itself, not the AirSim log (it can still hold the previous run's
+# "SimpleFlight"; see scripts/ros2/airsim-bridge.sh). Stuck, the AirSim vehicle would stay at
+# the spawn point while the lidar keeps publishing from there.
+# GazeboDrone has also died right after connecting (AirSim not fully up behind its open port,
+# x8_sp5_b): keep restarting it, and log it next to gazebo.log.
 cat << EOF >> PX4-Autopilot/Tools/simulation/gazebo-classic/sitl_run.sh
-while ! grep -q "SimpleFlight" /home/user/workspace/airsim/log; do
+until timeout 2 bash -c "exec 3<>/dev/tcp/\${AIRSIM_IP}/41451" 2>/dev/null; do
     sleep 0.5
 done
 
-/home/user/workspace/gazebo/GazeboDrone ${AIRSIM_IP} >> /dev/null 2>&1 &
+(while true; do
+    /home/user/workspace/gazebo/GazeboDrone \${AIRSIM_IP}
+    echo "[sitl_run.sh] GazeboDrone exited (\$?) - restarting in 2 s"
+    sleep 2
+done) >> /home/user/workspace/gazebo/logs/gazebodrone.log 2>&1 &
 
 EOF
 fi
