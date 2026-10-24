@@ -74,6 +74,10 @@ if [ -z "${DISPLAY}" ] && [ -z "${WAYLAND_DISPLAY}" ]; then
     Fail "no display (DISPLAY/WAYLAND_DISPLAY empty) - a graphical session is mandatory"
 fi
 command -v python3 >/dev/null || Fail "python3 not found (the C-Track scripts use it)"
+# a C-Track run leaves its ROS2 network (172.70.0.0/16) behind; compose cannot create sitl_network over it
+if docker network inspect ctrack-ros2 >/dev/null 2>&1; then
+    docker network rm ctrack-ros2 >/dev/null 2>&1 || Fail "a C-Track flight is running (network ctrack-ros2 in use) - ./scripts/ctrack.sh stop, then re-run"
+fi
 command -v sha256sum >/dev/null || Fail "sha256sum not found"
 EchoBoxLine
 
@@ -90,9 +94,12 @@ EchoBoxLine
 
 # ---- 3. PX4 -----------------------------------------------------------------
 EchoGreen "[install.sh] [3/8] PX4-AUTOPILOT CLONE + BUILD"
+# run.sh returns 0 even when compose could not start the container: check what it should have produced
 ${BASE_DIR}/run.sh px4 clone || Fail "px4 clone failed"
+[ -f ${PX4_WORKSPACE}/PX4-Autopilot/Makefile ] || Fail "px4 clone failed (no ${PX4_WORKSPACE}/PX4-Autopilot) - see the output above"
 if [ ! -f ${PX4_WORKSPACE}/PX4-Autopilot/build/px4_sitl_default/bin/px4 ]; then
     ${BASE_DIR}/run.sh px4 build || Fail "px4 build failed"
+    [ -f ${PX4_WORKSPACE}/PX4-Autopilot/build/px4_sitl_default/bin/px4 ] || Fail "px4 build failed (no bin/px4) - see the output above"
 else
     EchoYellow "[install.sh] PX4 already built - skipping"
 fi
