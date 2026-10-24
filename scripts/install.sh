@@ -96,10 +96,13 @@ EchoBoxLine
 EchoGreen "[install.sh] [3/8] PX4-AUTOPILOT CLONE + BUILD"
 # run.sh returns 0 even when compose could not start the container: check what it should have produced
 ${BASE_DIR}/run.sh px4 clone || Fail "px4 clone failed"
+docker network rm ${SITL_NETWORK_NAME} >/dev/null 2>&1
 [ -f ${PX4_WORKSPACE}/PX4-Autopilot/Makefile ] || Fail "px4 clone failed (no ${PX4_WORKSPACE}/PX4-Autopilot) - see the output above"
 if [ ! -f ${PX4_WORKSPACE}/PX4-Autopilot/build/px4_sitl_default/bin/px4 ]; then
     ${BASE_DIR}/run.sh px4 build || Fail "px4 build failed"
     [ -f ${PX4_WORKSPACE}/PX4-Autopilot/build/px4_sitl_default/bin/px4 ] || Fail "px4 build failed (no bin/px4) - see the output above"
+    # the build ran under compose: its sitl_network (172.70/16) would block the C-Track network
+    docker network rm ${SITL_NETWORK_NAME} >/dev/null 2>&1
 else
     EchoYellow "[install.sh] PX4 already built - skipping"
 fi
