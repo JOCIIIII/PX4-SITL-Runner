@@ -47,7 +47,7 @@ C-Track 시험장의 Unreal 패키지(약 400 MB)는 [A4VAI-Unreal 릴리스 `A4
 
 | 파일 | 내용 |
 |---|---|
-| `A4VAISIM-Linux.tar.gz` | C-Track·Yard 시험장 패키징 빌드 A4VAI Sim v1.0 (A4VAI-Unreal e85a5cd) |
+| `A4VAISIM-Linux.tar.gz` | C-Track·Yard 시험장 패키징 빌드 A4VAI Sim v1.0 (A4VAI-Unreal d316eb2) |
 | `ctrack-gazebo-prebuilt.tar.gz` | GazeboDrone + Gazebo 플러그인 |
 | `SHA256SUMS` | 두 파일의 체크섬 (설치가 확인함) |
 
