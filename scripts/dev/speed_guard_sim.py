@@ -4,8 +4,9 @@ without the simulator.
 
 lidar: the AirSim one of the X8 (0.3 m above the centre, 32 channels -7..+52 deg, 192 azimuths
 = 1.875 deg, 10 Hz, 40 m), ray-cast against the layout's boxes / cylinders and the RC cart
-(its plugin rule: starts when the vehicle comes within trigger_distance of trigger_point,
-shuttles start <-> end). Vehicle: on a straight path at a fixed height; its speed follows the
+(shuttles start <-> end from its start: in crossing / sweep its plugin rule - when the vehicle comes
+within trigger_distance of trigger_point, or at t=0 for a layout without a trigger; for recorded runs
+the start in the run's gzserver log, see cart_start). Vehicle: on a straight path at a fixed height; its speed follows the
 guarded command after a delay with acceleration limits (PathFollowing guid 0 in ctrack_sp_c/d:
 a /desired_speed drop shows after ~0.5 s, then ~3 m/s^2).
 
@@ -51,11 +52,30 @@ import numpy as np
 warnings.filterwarnings('ignore')
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'ros2', 'apps'))
 from super_speed_guard import GuardCore  # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from ctrack_clearance import cart_starts, px4_offset  # noqa: E402
+
+
+def cart_start(mo, run_dir, t, X, Y):
+    """when a recorded run's cart started, in the time base of t (the computer clock, as airsim_odom.csv and the guard
+    scans): its start in the run's gzserver log mapped through PX4's clock offset (px4_sitl.ulg), else the plugin's
+    trigger rule (a layout with a trigger), else the simulation start (no trigger); None if unknown"""
+    off = px4_offset(run_dir)
+    t0 = cart_starts(run_dir).get(mo['name'])
+    if t0 is None and mo.get('trigger_point') is None:
+        t0 = 0.0                                   # untriggered: moving from the simulation start
+    if t0 is not None and off is not None:
+        return t0 - float(np.interp(t0, off[0], off[1]))   # PX4 (= sim) time -> computer clock
+    if mo.get('trigger_point') is not None:
+        near = np.hypot(X - mo['trigger_point'][0], Y - mo['trigger_point'][1]) <= mo['trigger_distance']
+        return float(t[np.argmax(near)]) if near.any() else None
+    return None
+
 
 def _ctrack_dir():
     """CTRACK_DIR, else the installed A4VAI-Unreal (scripts/install.sh), else the developers' checkout"""
     for d in (os.environ.get('CTRACK_DIR', ''), '~/Documents/A4VAI-SITL/A4VAI-Unreal',
-              '~/Desktop/00_Project/00_A4VAI/00_Development/00_Simulator/02_InhouseSim/Unreal'):
+              '~/Desktop/00_Project/00_A4VAI/00_Development/00_Simulator/02_InhouseSim/00_Unreal/00_Map'):
         if d and os.path.isdir(os.path.expanduser(d)):
             return os.path.expanduser(d)
     return os.path.expanduser('~/Documents/A4VAI-SITL/A4VAI-Unreal')
@@ -149,7 +169,8 @@ def crossing(start, goal, speed, height, lay, static, quiet=False, delay=0.5, br
     dt = 0.02
     n_delay = int(round(delay / dt))
     hist_cmd = [0.0] * (n_delay + 1)
-    s = 0.0; v = 0.0; t_trig = None; lim = None; cmd = 0.0
+    s = 0.0; v = 0.0; lim = None; cmd = 0.0
+    t_trig = None if mo.get('trigger_point') is not None else 0.0     # no trigger: moving from the start
     log = {'moving': None, 'brake': None, 'min_margin': np.inf, 'min_at': None, 'stop': None, 'passed': None}
     for k in range(int(t_end / dt)):
         t = k * dt
@@ -205,14 +226,12 @@ def replay(run_dir, lay, static):
     t = a['t']
     fly = (t > t_arm) & (H > 1.0)
     g = GuardCore()
-    t_trig = None
+    t_trig = cart_start(mo, run_dir, t, X, Y)
     n_lim = {'static': 0, 'moving': 0}
     first = {}
     ts = np.arange(t[fly][0], t[fly][-1], 0.1)
     for tt in ts:
         x, y, h = (float(np.interp(tt, t, q)) for q in (X, Y, H))
-        if t_trig is None and math.hypot(x - mo['trigger_point'][0], y - mo['trigger_point'][1]) <= mo['trigger_distance']:
-            t_trig = tt
         c = cart_pose(mo, tt, t_trig)
         # path ahead: the recorded track from here on, 25 m
         k = np.searchsorted(t, tt)
@@ -291,8 +310,7 @@ def eval_runs(run_dirs, lay):
                     break
         g = np.genfromtxt(os.path.join(run_dir, 'airsim_odom.csv'), delimiter=',', names=True)
         X, Y = g['x'], -g['y']
-        near = np.hypot(X - mo['trigger_point'][0], Y - mo['trigger_point'][1]) <= mo['trigger_distance']
-        t_trig = g['t'][np.argmax(near)] if near.any() else None
+        t_trig = cart_start(mo, run_dir, g['t'], X, Y)
         core = GuardCore()
         cart_first, false = None, []
         for r in recs:
@@ -336,8 +354,7 @@ def leaks(run_dirs, lay):
                     break
         g = np.genfromtxt(os.path.join(run_dir, 'airsim_odom.csv'), delimiter=',', names=True)
         X, Y = g['x'], -g['y']
-        near = np.hypot(X - mo['trigger_point'][0], Y - mo['trigger_point'][1]) <= mo['trigger_distance']
-        t_trig = g['t'][np.argmax(near)] if near.any() else None
+        t_trig = cart_start(mo, run_dir, g['t'], X, Y)
         core = GuardCore()
         verdict, before, after, scans_after = None, 0, 0, 0
         for r in recs:

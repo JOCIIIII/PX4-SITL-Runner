@@ -41,13 +41,13 @@ cd PX4-SITL-Runner
 ./scripts/install.sh
 ```
 
-C-Track 시험장의 Unreal 패키지(약 380 MB)는 [A4VAI-Unreal 릴리스 `inhousesim-v1.0`](https://github.com/JOCIIIII/A4VAI-Unreal/releases/tag/inhousesim-v1.0)에서
-자동으로 받습니다. 같은 파일 3개가 연구실 NAS에도 있으니, 인터넷이 느리면 NAS에서 `~/Downloads/inhousesim-v1.0/`에
+C-Track 시험장의 Unreal 패키지(약 400 MB)는 [A4VAI-Unreal 릴리스 `A4VAI-Sim-v1.0`](https://github.com/JOCIIIII/A4VAI-Unreal/releases/tag/A4VAI-Sim-v1.0)(A4VAI Sim v1.0)에서
+자동으로 받습니다. 같은 파일 3개가 연구실 NAS에도 있으니, 인터넷이 느리면 NAS에서 `~/Downloads/A4VAI-Sim-v1.0/`에
 복사해 두세요. 그 폴더에 파일이 있으면 다운로드 대신 그걸 씁니다(다른 폴더면 `UNREAL_ASSET_DIR=<폴더>`).
 
 | 파일 | 내용 |
 |---|---|
-| `CTrackSim-Linux.tar.gz` | C-Track·Yard 시험장 패키징 빌드 (A4VAI-Unreal 59cc403) |
+| `A4VAISIM-Linux.tar.gz` | C-Track·Yard 시험장 패키징 빌드 A4VAI Sim v1.0 (A4VAI-Unreal e85a5cd) |
 | `ctrack-gazebo-prebuilt.tar.gz` | GazeboDrone + Gazebo 플러그인 |
 | `SHA256SUMS` | 두 파일의 체크섬 (설치가 확인함) |
 
@@ -138,7 +138,7 @@ C-Track과 동시에 돌리지 마세요(둘 다 172.70.0.0/16 네트워크를 �
 |---|---|
 | [PX4-SITL-Runner](https://github.com/JOCIIIII/PX4-SITL-Runner) | 이 저장소: 설치·실행·PILS·실기체 스크립트, 기체 모델, 비행 프로필 |
 | [A4VAI-Algorithms-ROS2](https://github.com/JOCIIIII/A4VAI-Algorithms-ROS2) | ROS2 알고리즘: 학습 회피 정책, flight_driver, PathFollowing·SUPER(서브모듈), T1000(전북대) |
-| [A4VAI-Unreal](https://github.com/JOCIIIII/A4VAI-Unreal) | C-Track·Yard 시험장 (UE 5.8 + Cosys-AirSim 3.5). 릴리스 `inhousesim-v1.0`에 패키징 빌드 (NAS에도 사본) |
+| [A4VAI-Unreal](https://github.com/JOCIIIII/A4VAI-Unreal) | C-Track·Yard 시험장 (UE 5.8 + Cosys-AirSim 3.5). 릴리스 `A4VAI-Sim-v1.0`에 패키징 빌드 (NAS에도 사본) |
 
 ## 검증 (2026-10-24, 빈 홈 폴더에서 새로 설치)
 

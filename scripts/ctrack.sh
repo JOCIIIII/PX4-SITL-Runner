@@ -23,13 +23,14 @@ BASE_DIR=$(dirname "$(readlink -f "$0")")
 REPO=$(dirname "$BASE_DIR")
 source "$BASE_DIR/include/commonEnv.sh"
 CTRACK=${CTRACK_DIR:-$CTRACK_UNREAL_DIR}
-[ -d "$CTRACK" ] || CTRACK=$HOME/Desktop/00_Project/00_A4VAI/00_Development/00_Simulator/02_InhouseSim/Unreal
+[ -d "$CTRACK" ] || CTRACK=$HOME/Desktop/00_Project/00_A4VAI/00_Development/00_Simulator/02_InhouseSim/00_Unreal/00_Map
 STATE=${XDG_RUNTIME_DIR:-/tmp}/ctrack_unreal.state      # "airframe map" of the simulator this script started
 LOG_DIR=$SITL_DEPLOY_DIR/logs
 PROFILES=$REPO/scripts/dev/flight_profiles
 
 api_up() { timeout 2 bash -c "exec 3<>/dev/tcp/127.0.0.1/41451" 2>/dev/null; }
-unreal_pids() { pgrep -f "[C]TrackSim-Linux-Shipping|[U]nrealEditor .*CTrackSim.uproject"; }
+# the Unreal project was renamed CTrackSim -> A4VAISIM (2026-11-17); older packages keep the old name
+unreal_pids() { pgrep -f "[C]TrackSim-Linux-Shipping|[A]4VAISIM-Linux-Shipping|[U]nrealEditor .*(CTrackSim|A4VAISIM)\.uproject"; }
 
 settings_for() {
     case "$1" in

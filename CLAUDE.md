@@ -18,9 +18,9 @@ avoidance, PathFollowing MPPI, SUPER planner, a flight driver). The same apps ru
 This repo holds only scripts, configs, airframe models and docs. Sources and binaries come from:
 - `JOCIIIII/A4VAI-Algorithms-ROS2` branch `inhousesim-v1.0` (submodules `A4VAI-PathFollowing`, `super` on their
   `inhousesim-v1.0` branches, `px4_msgs` release/1.16) → `~/Documents/A4VAI-SITL/ROS2/ros2_ws/src`
-- `JOCIIIII/A4VAI-Unreal` tag `inhousesim-v1.0` (sparse checkout) + its release assets `CTrackSim-Linux.tar.gz`
+- `JOCIIIII/A4VAI-Unreal` tag `A4VAI-Sim-v1.0` (sparse checkout) + its release assets `A4VAISIM-Linux.tar.gz`
   (packaged Shipping build), `ctrack-gazebo-prebuilt.tar.gz`, `SHA256SUMS` (also on the lab NAS; a copy in
-  `~/Downloads/inhousesim-v1.0` is used instead of downloading) → `~/Documents/A4VAI-SITL/A4VAI-Unreal`
+  `~/Downloads/A4VAI-Sim-v1.0` is used instead of downloading) → `~/Documents/A4VAI-SITL/A4VAI-Unreal`
 - PX4-Autopilot v1.16.0 + `A4VAI-Custom-PX4-File` → `~/Documents/A4VAI-SITL/PX4-Autopilot`
 
 ## First steps on a new machine
@@ -34,7 +34,7 @@ This repo holds only scripts, configs, airframe models and docs. Sources and bin
 Requirements: Ubuntu 22.04 x86_64, NVIDIA driver with Vulkan (the packaged Unreal needs no UE install), a graphical
 session (DISPLAY), ~60 GB disk, python3 (host analysis tools also need `pip3 install --user numpy pyulog`).
 `install.sh` overrides (env): `ROS2_SRC_REPO/BRANCH`, `UNREAL_REPO/REF`, `UNREAL_ASSET_DIR` (a folder with the three
-package files, default `~/Downloads/inhousesim-v1.0`), `UNREAL_ASSET_URL` (default the GitHub release).
+package files, default `~/Downloads/A4VAI-Sim-v1.0`), `UNREAL_ASSET_URL` (default the GitHub release).
 
 ## C-Track flights (`scripts/ctrack.sh` → `scripts/dev/pils_gate.sh` → `scripts/dev/ctrack_super.sh`)
 
