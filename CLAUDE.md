@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Guidance for Claude Code in this repository (A4VAI-SP2-Sim, the A4VAI subproject-2 SILS / PILS simulator, formerly PX4-SITL-Runner;
+Guidance for Claude Code in this repository (PX4-SITL-Runner, the A4VAI subproject-2 SILS / PILS simulator;
 branch `main`, also published as `inhousesim-v1.0`). The user-facing guide is
 `README.md` (Korean); answer the user in Korean unless they write otherwise.
 

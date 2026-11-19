@@ -1,4 +1,4 @@
-# A4VAI 2세부 SILS·PILS 시뮬레이터 (A4VAI-SP2-Sim)
+# A4VAI 2세부 SILS·PILS 시뮬레이터 (PX4-SITL-Runner)
 
 무인이동체 자율비행 시뮬레이터입니다. PX4(비행제어), Gazebo Classic(물리), Unreal C-Track 시험장(센서·환경),
 ROS2 Humble(자율비행 알고리즘)을 도커로 묶어 이륙부터 착륙까지 자동으로 비행합니다.
@@ -28,8 +28,8 @@ PILS를 하려면 Jetson Orin(JetPack 6, L4T R36)이 추가로 필요합니다(5
 
 ```bash
 sudo ubuntu-drivers autoinstall && sudo reboot      # NVIDIA 드라이버가 이미 있으면 건너뜀
-git clone https://github.com/JOCIIIII/A4VAI-SP2-Sim.git
-cd A4VAI-SP2-Sim
+git clone https://github.com/JOCIIIII/PX4-SITL-Runner.git
+cd PX4-SITL-Runner
 ./scripts/setup-host.sh                             # Docker + NVIDIA Container Toolkit
 ```
 
@@ -136,7 +136,7 @@ C-Track과 동시에 돌리지 마세요(둘 다 172.70.0.0/16 네트워크를 �
 
 | 저장소 | 내용 |
 |---|---|
-| [A4VAI-SP2-Sim](https://github.com/JOCIIIII/A4VAI-SP2-Sim) | 이 저장소(예전 이름 PX4-SITL-Runner): 설치·실행·PILS·실기체 스크립트, 기체 모델, 비행 프로필 |
+| [PX4-SITL-Runner](https://github.com/JOCIIIII/PX4-SITL-Runner) | 이 저장소(A4VAI 2세부 SILS·PILS 시뮬레이터): 설치·실행·PILS·실기체 스크립트, 기체 모델, 비행 프로필 |
 | [A4VAI-Algorithms-ROS2](https://github.com/JOCIIIII/A4VAI-Algorithms-ROS2) | ROS2 알고리즘: 학습 회피 정책, flight_driver, PathFollowing·SUPER(서브모듈), T1000(전북대) |
 | [A4VAI-Unreal](https://github.com/JOCIIIII/A4VAI-Unreal) | C-Track·Yard 시험장 (UE 5.8 + Cosys-AirSim 3.5). 릴리스 `A4VAI-Sim-v1.0`에 패키징 빌드 |
 

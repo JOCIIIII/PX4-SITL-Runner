@@ -11,7 +11,7 @@
 ## 설치 (명령 2개)
 
 ```bash
-git clone https://github.com/JOCIIIII/A4VAI-SP2-Sim.git && cd A4VAI-SP2-Sim
+git clone https://github.com/JOCIIIII/PX4-SITL-Runner.git && cd PX4-SITL-Runner
 ./scripts/setup-host.sh     # 호스트 사전준비: Docker + NVIDIA Container Toolkit (sudo, 1회)
 ./scripts/install.sh        # 시뮬레이터 설치 (docker 그룹 추가됐다면 재로그인 후)
 ```

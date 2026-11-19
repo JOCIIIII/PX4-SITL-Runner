@@ -54,7 +54,7 @@ UNREAL_DIR=${CTRACK_UNREAL_DIR}
 COSYS_REPO="https://github.com/Cosys-Lab/Cosys-AirSim.git"
 COSYS_TAG="5.4-v3.2"                       # must match the AirSim Unreal binary
 RESOURCE_URL="https://github.com/kestr31/PX4-SITL-Runner/releases/download/Resources"
-AIRSIM_BIN_URL="https://github.com/JOCIIIII/A4VAI-SP2-Sim/releases/download/inhousesim-v0.9/sim_world.tar.gz"
+AIRSIM_BIN_URL="https://github.com/JOCIIIII/PX4-SITL-Runner/releases/download/inhousesim-v0.9/sim_world.tar.gz"
 
 ROS2_SRC=${ROS2_WORKSPACE}/ros2_ws/src
 ROS2_IMAGE=$(grep '^ROS2_ENV_IMAGE=' ${REPO_DIR}/envs/ros2.env | cut -d= -f2)
