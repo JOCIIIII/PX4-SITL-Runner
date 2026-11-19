@@ -82,6 +82,16 @@ python3 scripts/dev/shake_metrics.py   ~/Documents/A4VAI-SITL/ROS2/test_runs/fir
 설명과 SILS/PILS 결과는 `scripts/dev/flight_profiles/README.md`에 있습니다.
 명령 앞에 `NOCLIMB_*=값`을 붙이면 프로필 값보다 우선합니다(예: `NOCLIMB_CMD_ACCEL_MAX=2.5 ./scripts/ctrack.sh fly x500_3 t1`).
 
+### 시험: 단위·쌍·통합
+
+경로계획(PP)·경로추종(PF)·충돌회피(CA)를 하나씩, 둘씩, 셋 모두 시험합니다. 충돌회피는 `TEST_CA=inha|jbnu|super`(인하대 / 전북대 T1000 / SUPER)로 고릅니다.
+명령, 시험별 구성, 합격 기준, 옵션은 [docs/MANUAL.md](docs/MANUAL.md)의 "시험" 절에 있습니다.
+
+```bash
+TEST_CA=super ./scripts/ctrack.sh test pf-ca t1    # 시험: pp | pf | ca | pp-pf | pf-ca | all
+./scripts/ctrack.sh test table                     # 셀마다 최근 결과
+```
+
 ## 5. 실행: PILS (Jetson)
 
 알고리즘을 Jetson에서 돌리고 이 PC는 시뮬레이션만 합니다. Jetson은 JetPack 6(L4T R36)이어야 합니다.

@@ -1,5 +1,6 @@
 #!/bin/bash
 # The final demonstration scenarios (2026-11-06 workshop deck, slides 17-20) on the C-Track field, one run each:
+#   P          path planning only: Hybrid PP over DEMO_P_POINTS (default START,WP1), no flight
 #   A          path planning: Hybrid PP START -> WP1 around the pre-known tents, flown by PathFollowing alone at DEMO_SPEED
 #   B          path following in the fan wind: WP2 -> WP3 straight at DEMO_SPEED through the DEMO_WIND cross wind
 #   B-square / B-circle / B-spiral   PathFollowing courses inside the fan zone at DEMO_SPEED, wind on
@@ -21,7 +22,7 @@
 # deck WP4 = WP6 (26,23); START (0,0), GOAL (0,26). Results: test_runs/NAME (the run) with pp/ (the plan) and
 # demo_summary.txt (path error, wind-zone error, clearance).
 set -u
-SC=${1:?usage: ctrack_demo.sh A|B|B-square|B-circle|B-spiral|C|D NAME [PROFILE]}
+SC=${1:?usage: ctrack_demo.sh P|A|B|B-square|B-circle|B-spiral|C|D NAME [PROFILE]}
 NAME=${2:?usage: ctrack_demo.sh SCENARIO NAME [PROFILE]}
 PROFILE=${3:-x8_5sm2}
 REPO=$(dirname $(dirname $(dirname $(readlink -f "$0"))))
@@ -43,6 +44,15 @@ print(','.join(str(v) for v in z[0]['x_range'] + z[0]['y_range']) if z else '')"
 WIND_ENV=(); [ "$WIND" != 0 ] && WIND_ENV=(CTRACK_WIND=$WIND)
 rm -rf "$PLAN"; mkdir -p "$PLAN"
 
+load_profile() {   # the profile's knobs into the environment, the caller's values winning (as pils_gate.sh)
+    while IFS='=' read -r k v; do
+        [[ "$k" =~ ^[A-Z_][A-Z0-9_]*$ ]] || continue
+        [[ "$k" == VEHICLE_* ]] && continue
+        [ -n "${!k+x}" ] && continue
+        v=$(echo "${v%%#*}" | sed -E 's/[[:space:]]+$//; s/^"(.*)"$/\1/')
+        export "$k=$v"
+    done < "$PF"
+}
 plan() {   # Hybrid PP over the given points -> $PLAN/pp_path.csv
     "$REPO/scripts/dev/ctrack_pp.sh" "$PLAN" "$1" --alt "$ALT" "${@:2}" || { echo "[demo] path planning failed"; exit 1; }
 }
@@ -92,6 +102,12 @@ PYEOF
 }
 
 case "$SC" in
+    P)
+        # path planning only (the PP unit test of scripts/dev/ctrack_test.sh): Hybrid PP over DEMO_P_POINTS (default
+        # START,WP1 = scenario A's route around the known tents), no flight
+        plan "${DEMO_P_POINTS:-START,WP1}"
+        rm -rf "$OUT"; mkdir -p "$OUT"; echo planned > "$OUT/result.txt"
+        PATH_CSV= ;;
     A)
         plan START,WP1
         "$REPO/scripts/ctrack.sh" unreal "$AF" > /dev/null || exit 1
@@ -112,9 +128,24 @@ case "$SC" in
             "$REPO/scripts/dev/ctrack_super.sh" "$NAME" "$A0" "$A1" "$ALT" "$SPEED" "$TIMEOUT" "$AF"
         PATH_CSV=$PLAN/course.csv ;;
     C)
-        CTRACK_LEGS=${DEMO_C_LEGS:-WP5,WP6,GOAL} "$REPO/scripts/ctrack.sh" fly "$PROFILE" "$NAME" WP3 GOAL "$ALT" 5.0 "$TIMEOUT"
+        if [ -n "${DEMO_CA_APP:-}" ] && [ "$DEMO_CA_APP" != noclimb_ca ]; then
+            # another avoidance app on the same course: t1000 (T1000's own velocity setpoints to PX4), t1000_pf (T1000
+            # through the follower + flight_driver), super_pf (SUPER through the follower). The profile's knobs,
+            # ctrack_super.sh directly; the legs for t1000_pf / super_pf (t1000 owns the flight: WP3 -> GOAL)
+            "$REPO/scripts/ctrack.sh" unreal "$AF" > /dev/null || exit 1
+            LEGS=$([ "$DEMO_CA_APP" = t1000 ] || echo "${DEMO_C_LEGS:-WP5,WP6,GOAL}")
+            ( load_profile; export CTRACK_APP=$DEMO_CA_APP SIM_LIDAR=${SIM_LIDAR:-mid360}
+              [ -n "$LEGS" ] && export CTRACK_LEGS=$LEGS
+              "$REPO/scripts/dev/ctrack_super.sh" "$NAME" WP3 GOAL "$ALT" 5.0 "$TIMEOUT" "$AF" )
+        else
+            CTRACK_LEGS=${DEMO_C_LEGS:-WP5,WP6,GOAL} "$REPO/scripts/ctrack.sh" fly "$PROFILE" "$NAME" WP3 GOAL "$ALT" 5.0 "$TIMEOUT"
+        fi
         PATH_CSV= ;;
     D)
+        if [ "${DEMO_CA_APP:-}" = t1000 ]; then
+            echo "[demo] D with DEMO_CA_APP=t1000: T1000 owns the flight from take-off - use t1000_pf (T1000 through the follower)"
+            exit 2
+        fi
         plan "${DEMO_D_POINTS:-START,WP2,WP3,WP5,WP6,GOAL}"
         # the part flown by PathFollowing alone: the plan's first two legs (START -> WP2 -> WP3)
         python3 - "$PLAN/pp_result.json" "$PLAN/prefix.csv" <<'PYEOF' || exit 1
@@ -162,8 +193,16 @@ with open(sys.argv[2], 'w') as f:
     for x, y in pts:
         f.write(f'{x:.3f},{y:.3f}\n')
 PYEOF
-        env "${WIND_ENV[@]}" CTRACK_LEGS=${DEMO_D_LEGS:-WP3,WP5,WP6,GOAL} CTRACK_PREFIX=$PLAN/prefix.csv NOCLIMB_PREFIX_SPEED=$SPEED \
-            "$REPO/scripts/ctrack.sh" fly "$PROFILE" "$NAME" START GOAL "$ALT" 5.0 "$TIMEOUT"
+        if [ -n "${DEMO_CA_APP:-}" ] && [ "$DEMO_CA_APP" != noclimb_ca ]; then
+            # t1000_pf / super_pf: the prefix by prefix_relay_node.py, then the chain (see ctrack_super.sh)
+            "$REPO/scripts/ctrack.sh" unreal "$AF" > /dev/null || exit 1
+            ( load_profile; export CTRACK_APP=$DEMO_CA_APP SIM_LIDAR=${SIM_LIDAR:-mid360}
+              env "${WIND_ENV[@]}" CTRACK_LEGS=${DEMO_D_LEGS:-WP3,WP5,WP6,GOAL} CTRACK_PREFIX=$PLAN/prefix.csv \
+                  NOCLIMB_PREFIX_SPEED=$SPEED "$REPO/scripts/dev/ctrack_super.sh" "$NAME" START GOAL "$ALT" 5.0 "$TIMEOUT" "$AF" )
+        else
+            env "${WIND_ENV[@]}" CTRACK_LEGS=${DEMO_D_LEGS:-WP3,WP5,WP6,GOAL} CTRACK_PREFIX=$PLAN/prefix.csv NOCLIMB_PREFIX_SPEED=$SPEED \
+                "$REPO/scripts/ctrack.sh" fly "$PROFILE" "$NAME" START GOAL "$ALT" 5.0 "$TIMEOUT"
+        fi
         PATH_CSV=$PLAN/prefix.csv ;;
     *)
         sed -n 2,16p "$0"; exit 1 ;;
@@ -172,7 +211,10 @@ esac
 [ -d "$OUT" ] || { echo "[demo] no run dir $OUT"; exit 1; }
 mkdir -p "$OUT/plan" && cp -r "$PLAN"/. "$OUT/plan/" && rm -rf "$PLAN"
 {
-    echo "scenario $SC, profile $PROFILE ($AF), speed $SPEED m/s, path height $ALT m, wind $WIND m/s"
+    # the wind blows in B and D only; C flies at the avoidance's own speed (5 m/s cap), P does not fly
+    case "$SC" in B*|D) W_TXT="wind $WIND m/s" ;; *) W_TXT="no wind" ;; esac
+    case "$SC" in C) S_TXT="the avoidance's own speed (5 m/s cap)" ;; P) S_TXT="no flight" ;; *) S_TXT="speed $SPEED m/s" ;; esac
+    echo "scenario $SC, profile $PROFILE ($AF), $S_TXT, path height $ALT m, $W_TXT"
     echo "result: $(cat "$OUT/result.txt" 2>/dev/null)"
     [ -f "$OUT/plan/pp_result.json" ] && python3 -c "
 import json, sys; r = json.load(open(sys.argv[1]))

@@ -119,16 +119,15 @@ gx, gy = wp[sys.argv[3]] if sys.argv[3] in wp else map(float, sys.argv[3].split(
 print(fx, -fy, round(math.atan2(-(gy - fy), gx - fx), 4), gx - fx, -(gy - fy))
 EOF
 )
-APP_ENV=()
-if [ "$APP" = noclimb_ca ]; then
-    : ${NOCLIMB_MAX_TILT_RATE:=0.8}; export NOCLIMB_MAX_TILT_RATE
-    # CTRACK_LEGS: the mission's goals in order (layout names or X:Y, comma-separated; all but the last pass-through)
-    # and CTRACK_PREFIX: a layout-frame path (CSV as CTRACK_PATH) flown by PathFollowing alone before the policy -
-    # the final demonstration's integrated flight D: the Hybrid PP path Start -> WP2 without avoidance, then the
-    # policy WP2 -> WP3 -> WP4 -> Goal. Both go to noclimb_ca.sh as NOCLIMB_LEGS / NOCLIMB_PREFIX_PATH (metres from
-    # the take-off point FROM).
-    if [ -n "${CTRACK_LEGS:-}${CTRACK_PREFIX:-}" ]; then
-        eval "$(python3 - "$LAYOUT" "$FROM" "${CTRACK_LEGS:-}" "${CTRACK_PREFIX:-}" <<'PYEOF'
+# CTRACK_LEGS: the mission's goals in order (layout names or X:Y, comma-separated; all but the last pass-through)
+# and CTRACK_PREFIX: a layout-frame path (CSV as CTRACK_PATH) flown by PathFollowing alone before the policy -
+# the final demonstration's integrated flight D: the Hybrid PP path Start -> WP2 without avoidance, then the
+# policy WP2 -> WP3 -> WP4 -> Goal. Both as NOCLIMB_LEGS / NOCLIMB_PREFIX_PATH (metres from the take-off point
+# FROM): noclimb_ca.sh and t1000_pf.sh hand the legs to flight_driver, super_pf writes them as SUPER's sequential
+# goals; the prefix is flown by noclimb_ca_node.py itself, for t1000_pf / super_pf by prefix_relay_node.py.
+if [ -n "${CTRACK_LEGS:-}${CTRACK_PREFIX:-}" ]; then
+    case "$APP" in noclimb_ca|t1000_pf|super_pf) ;; *) echo "[ctrack] CTRACK_LEGS / CTRACK_PREFIX: not for $APP"; exit 1 ;; esac
+    eval "$(python3 - "$LAYOUT" "$FROM" "${CTRACK_LEGS:-}" "${CTRACK_PREFIX:-}" <<'PYEOF'
 import json, math, sys
 wp = json.load(open(sys.argv[1]))['waypoints']
 pt = lambda s: tuple(wp[s]) if s in wp else tuple(float(v) for v in s.replace(':', ',').split(','))
@@ -153,8 +152,11 @@ if sys.argv[4]:
     print(f"export NOCLIMB_PREFIX_PATH='{';'.join(f'{x - fx:.2f},{-(y - fy):.2f}' for x, y in pts)}'")
 PYEOF
 )" || exit 1
-        echo "[ctrack] legs: ${NOCLIMB_LEGS:-none}; prefix path: $(echo "${NOCLIMB_PREFIX_PATH:-}" | tr ';' '\n' | grep -c .) points"
-    fi
+    echo "[ctrack] legs: ${NOCLIMB_LEGS:-none}; prefix path: $(echo "${NOCLIMB_PREFIX_PATH:-}" | tr ';' '\n' | grep -c .) points"
+fi
+APP_ENV=()
+if [ "$APP" = noclimb_ca ]; then
+    : ${NOCLIMB_MAX_TILT_RATE:=0.8}; export NOCLIMB_MAX_TILT_RATE
     while IFS='=' read -r k v; do
         [ -n "${!k+x}" ] || APP_ENV+=(-e "$k=$v")
     done < <(grep -E '^NOCLIMB_[A-Z_]+=' $REPO/envs/ros2.env | sed -E 's/[[:space:]]+#.*$//; s/"//g')
@@ -241,6 +243,14 @@ fi
 # SIM_LIDAR=mid360: the A4VAI-Unreal Mid-360 pattern lidar (run_unreal.sh settings/settings_gazebo_mid360.json);
 # the apps de-skew it by shot order instead of azimuth
 [ -n "${SIM_LIDAR:-}" ] && APP_ENV+=(-e "SIM_LIDAR=$SIM_LIDAR")
+# super_pf: SUPER_PF_GUID (2 = MPPI); t1000_pf / super_pf: the integrated test's prefix
+if [ "$APP" = super_pf ]; then
+    [ -n "${SUPER_PF_GUID:-}" ] && APP_ENV+=(-e "SUPER_PF_GUID=$SUPER_PF_GUID")
+fi
+if [ "$APP" = super_pf ] || [ "$APP" = t1000_pf ]; then
+    [ -n "${NOCLIMB_PREFIX_PATH:-}" ] && APP_ENV+=(-e "CA_PREFIX_PATH=$NOCLIMB_PREFIX_PATH" -e "CA_PREFIX_SPEED=${NOCLIMB_PREFIX_SPEED:-5}")
+    [ "$APP" = super_pf ] && [ -n "${NOCLIMB_LEGS:-}" ] && APP_ENV+=(-e "NOCLIMB_LEGS=$NOCLIMB_LEGS")
+fi
 # CTRACK_LLM=1: the mission comes from the operator's words (noclimb_ca.sh LLM_MISSION; talk to it with
 # scripts/ctrack.sh llm): the take-off point in the layout frame and the flight height go to the mission node
 if [ "${CTRACK_LLM:-0}" = 1 ]; then
@@ -385,7 +395,12 @@ if [ "$MODE" = pils ]; then
     T0=$(date +%s)
 else
 git -C $W/ROS2/ros2_ws/src show HEAD:realgazebo_fastplanner_adapters/config/goals_super_far.csv > "$OUT/goals_csv_backup" 2>/dev/null
-printf 'x,y,z\n%s, %s, %s\n' "$GX" "$GY" "$Z" > "$GOALS"
+if [ "$APP" = super_pf ] && [ -n "${NOCLIMB_LEGS:-}" ]; then
+    # the legs as SUPER's sequential goals (csv_goal_pub passes each within 2 m; the flight FSM lands at the last)
+    { echo x,y,z; echo "$NOCLIMB_LEGS" | tr ';' '\n' | awk -F, -v z="$Z" 'NF >= 2 {printf "%s, %s, %s\n", $2, $1, z}'; } > "$GOALS"
+else
+    printf 'x,y,z\n%s, %s, %s\n' "$GX" "$GY" "$Z" > "$GOALS"
+fi
 docker run -d --rm --name ros2-env --hostname ros2-env --network ctrack-ros2 --ip 172.70.0.5 \
     --gpus all --privileged \
     -e ROS_DOMAIN_ID=0 -e AIRSIM_IP=172.70.0.1 -e PX4_IP=127.0.0.1 \

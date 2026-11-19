@@ -20,6 +20,10 @@
 #                       following through the fan wind, C avoidance WP3 -> GOAL, D all in one flight (PP path flown by
 #                       PathFollowing to WP3, then the policy) - scripts/dev/ctrack_demo.sh; Hybrid PP needs
 #                       scripts/dev/ctrack_pp.sh --install once
+#   ./scripts/ctrack.sh test pp|pf|ca|pp-pf|pf-ca|all NAME [PROFILE]   (test table: the latest result of each cell)
+#                       the test matrix: PP / PF / CA unit tests, the PP-PF and PF-CA pair tests and the integrated
+#                       test (path following: PathFollowing MPPI), with TEST_CA=inha|jbnu|super (learned policy |
+#                       T1000 | SUPER) - scripts/dev/ctrack_test.sh
 #   ./scripts/ctrack.sh profiles                          the flight profiles (scripts/dev/flight_profiles/*.env)
 #   ./scripts/ctrack.sh stop                              stop the simulator and its containers
 #
@@ -158,6 +162,10 @@ case "$CMD" in
         docker rm -f ctrack-sitl ros2-env pils-airsim > /dev/null 2>&1
         docker network rm ctrack-ros2 > /dev/null 2>&1       # its 172.70/16 blocks the compose stack's network
         echo "[ctrack] stopped" ;;
+    test)
+        # the simulator test matrix (unit / pair / integrated tests, PF and CA choices): scripts/dev/ctrack_test.sh
+        shift
+        exec "$REPO/scripts/dev/ctrack_test.sh" "$@" ;;
     *)
-        sed -n '2,22p' "$0"; exit 1 ;;
+        sed -n '2,28p' "$0"; exit 1 ;;
 esac

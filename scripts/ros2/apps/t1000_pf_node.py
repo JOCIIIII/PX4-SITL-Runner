@@ -54,6 +54,10 @@ class T1000PF(Node):
         self.path_ext = float(p('path_extension', 5.0))
         self.min_speed = float(p('min_speed', 0.1))       # below: keep the last direction
         self.handover = float(p('goal_handover_m', 3.0))
+        # stall_restart_s: T1000 holding still (no command, no motion) this long restarts its path from here to the
+        # goal; 0 = off (default: the PILS / vehicle runs keep their behaviour; t1000_pf.sh sets it for legs)
+        self.stall_s = float(p('stall_restart_s', 0.0))
+        self.t_active = 0.0
         self.handover_speed = float(p('handover_speed', 1.0))
         self.goal_brake = float(p('goal_brake_accel', 1.5))
         self.preview_timeout = float(p('preview_timeout_s', 0.5))
@@ -134,6 +138,15 @@ class T1000PF(Node):
 
     def goal_cb(self, m):
         if self.engaged:
+            # the next leg of flight_driver's mission: T1000's straight path restarts here, to the new goal
+            g = np.array([float(m.point.x), float(m.point.y)])
+            if self.goal is None or self.pos is None or self.done or np.linalg.norm(g - self.goal) < 0.5:
+                return
+            self.get_logger().info(f'[t1000_pf] next goal ({g[0]:.1f}, {g[1]:.1f})')
+            self.goal = g
+            self.alt = float(m.point.z)
+            self.path_start = self.pos[:2].copy()
+            self.publish_t1000_path()
             return
         if self.goal is None:
             self.get_logger().info(f'[t1000_pf] goal from the flight driver ({m.point.x:.1f}, {m.point.y:.1f}) '
@@ -222,10 +235,23 @@ class T1000PF(Node):
                 return
             self.engaged = True
             self.t0 = t
+            self.t_active = t
             self.get_logger().info(f'[t1000_pf] engaged at ({self.pos[0]:.1f}, {self.pos[1]:.1f}, {self.pos[2]:.1f}), '
                                    f'{np.linalg.norm(self.goal - self.pos[:2]):.1f} m to the goal')
         vs, dmin = self.safety_filter(v) if self.safe_r > 0.0 else (v, float('inf'))
         d_goal = float(np.linalg.norm(self.goal - self.pos[:2]))
+        # a stall: T1000 at its path's end beside the goal (it dodged sideways near a leg end, remain 0, cross-track
+        # metres) holds still for that waypoint, while flight_driver passes a leg only within its radius - restart
+        # T1000's straight path from here to the goal (scripts/dev/ctrack_test.sh pf-ca / all)
+        moving = getattr(self, 'vel', None) is not None and float(np.linalg.norm(self.vel[:2])) > 0.3
+        if float(np.linalg.norm(v)) > 0.05 or moving:
+            self.t_active = t
+        elif self.stall_s > 0.0 and t - self.t_active > self.stall_s and d_goal > 0.5:
+            self.get_logger().info(f'[t1000_pf] stalled {t - self.t_active:.1f} s, {d_goal:.1f} m from the goal: '
+                                   f'T1000 path restarted from here')
+            self.path_start = self.pos[:2].copy()
+            self.publish_t1000_path()
+            self.t_active = t
         sp = float(np.linalg.norm(vs))
         if sp > self.min_speed:
             self.dir = vs / sp

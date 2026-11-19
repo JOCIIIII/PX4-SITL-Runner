@@ -103,7 +103,18 @@ SPEED_TOPIC_ARG=$([ "${SUPER_PF_SPEED_GUARD}" = "1" ] && echo "-r /desired_speed
 #    SUPER_PF_HOLD_Z (optional): every waypoint to PF at this PX4-local height (ENU z) - the
 #    flight height stays fixed while SUPER dodges sideways (C-Track 1.5 m; poly_to_waypoints hold_z)
 HOLD_ARG=$([ -n "${SUPER_PF_HOLD_Z}" ] && printf -- '-p hold_z:=%.3f' "${SUPER_PF_HOLD_Z}")
-ros2 run super_pf_bridge poly_to_waypoints --ros-args -p speed_max:=${SUPER_PF_MAX_SPEED:-7.0} ${SPEED_TOPIC_ARG} ${HOLD_ARG} \
+#    CA_PREFIX_PATH (the integrated test, scripts/dev/ctrack_test.sh all): the planned prefix is flown first -
+#    the chain's path / speed go to /ca/* and prefix_relay_node.py hands them to the follower after the prefix.
+PREFIX_WP_ARG=""; PREFIX_SPEED_ARG=""
+if [ -n "${CA_PREFIX_PATH:-}" ]; then
+    PREFIX_WP_ARG="-r /local_waypoint_setpoint_to_PF:=/ca/local_waypoint_setpoint_to_PF"
+    PREFIX_SPEED_ARG="-r /desired_speed:=/ca/desired_speed"
+    python3 $(dirname $(readlink -f "$0"))/prefix_relay_node.py --ros-args -p "prefix_path:=${CA_PREFIX_PATH}" \
+        -p prefix_speed:=$(printf '%.2f' ${CA_PREFIX_SPEED:-5}) -p altitude:=$(printf '%.3f' ${SUPER_PF_HOLD_Z:-${SUPER_PF_ALT:-1.5}}) \
+        2>&1 | tee ${LOGS}/prefix_relay.log &
+fi
+ros2 run super_pf_bridge poly_to_waypoints --ros-args -p speed_max:=${SUPER_PF_MAX_SPEED:-7.0} ${SPEED_TOPIC_ARG} ${HOLD_ARG} ${PREFIX_WP_ARG} \
+    $([ "${SUPER_PF_SPEED_GUARD}" = "1" ] || echo ${PREFIX_SPEED_ARG}) \
     2>&1 | tee ${LOGS}/super_pf_bridge.log &
 if [ "${SUPER_PF_SPEED_GUARD}" = "1" ]; then
     GUARD_R=${SUPER_PF_GUARD_RADIUS:-$([ "${SITL_AIRFRAME}" = "x8" ] && echo 0.8 || echo 0.4)}
@@ -118,7 +129,7 @@ if [ "${SUPER_PF_SPEED_GUARD}" = "1" ]; then
             python3 $(dirname $(readlink -f "$0"))/super_speed_guard.py --ros-args \
                 -p block_radius_m:=${GUARD_R} -p nominal_speed:=${SUPER_PF_MAX_SPEED:-7.0} \
                 -p static_cloud_topic:=/cloud_static -p static_cloud_input:=/cloud_gated ${STATIC_MIN_Z_ARG} \
-                -p dump_path:=${LOGS}/super_speed_guard_scans.pkl
+                -p dump_path:=${LOGS}/super_speed_guard_scans.pkl ${PREFIX_SPEED_ARG}
             echo "[super_pf] super_speed_guard exited - restarting"
             sleep 0.5
         done
@@ -131,10 +142,21 @@ fi
 # PathFollowing vehicle model follows the simulated airframe (envs/gazebo-classic.env
 # SITL_AIRFRAME, copied into ros2.env by run.sh): x8 -> octo.yaml (2), iris -> quad.yaml (1)
 PF_VEHICLE_TYPE=$([ "${SITL_AIRFRAME}" = "x8" ] && echo 2 || echo 1)
-ros2 run pathfollowing node_pathfollowing --ros-args -p guid_type:=0 -p vehicle_type:=${PF_VEHICLE_TYPE} \
-    2>&1 | tee ${LOGS}/node_pathfollowing.log &
-ros2 run pathfollowing node_mppi --ros-args -p guid_type:=0 -p vehicle_type:=${PF_VEHICLE_TYPE} \
-    2>&1 | tee ${LOGS}/node_mppi.log &
+#    SUPER_PF_GUID=2 (scripts/dev/ctrack_test.sh): MPPI with the avoidance config sim_ca_mppi(_x8).yaml - its
+#    mppi_speed_transition engages MPPI on this replanned path once the vehicle moves (the note above predates it);
+#    default guid 0 as above.
+if [ "${SUPER_PF_GUID:-0}" = 2 ]; then
+    MPPI_YAML=$([ "${SITL_AIRFRAME}" = "x8" ] && echo sim_ca_mppi_x8.yaml || echo sim_ca_mppi.yaml)
+    ros2 run pathfollowing node_pathfollowing --ros-args -p guid_type:=2 -p sim_yaml:=${MPPI_YAML} \
+        -p vehicle_type:=${PF_VEHICLE_TYPE} 2>&1 | tee ${LOGS}/node_pathfollowing.log &
+    ros2 run pathfollowing node_mppi --ros-args -p guid_type:=2 -p sim_yaml:=${MPPI_YAML} \
+        -p vehicle_type:=${PF_VEHICLE_TYPE} 2>&1 | tee ${LOGS}/node_mppi.log &
+else
+    ros2 run pathfollowing node_pathfollowing --ros-args -p guid_type:=0 -p vehicle_type:=${PF_VEHICLE_TYPE} \
+        2>&1 | tee ${LOGS}/node_pathfollowing.log &
+    ros2 run pathfollowing node_mppi --ros-args -p guid_type:=0 -p vehicle_type:=${PF_VEHICLE_TYPE} \
+        2>&1 | tee ${LOGS}/node_mppi.log &
+fi
 
 # 5) Flight FSM. flight_manager hardcodes vehicle1/fmu/* - remap to this SITL's /fmu/*.
 #    Near the final goal (last line of the goal CSV) it hands over from PF to PX4 position
@@ -156,11 +178,16 @@ ros2 run flight_manager flight_manager --ros-args ${FM_ALT_ARG} \
     2>&1 | tee ${LOGS}/flight_manager.log &
 
 # 6) Goal feeder: wait for takeoff, then stream goals_super.csv to SUPER + bridge
+#    Several goals (the legs of scripts/dev/ctrack_test.sh pf-ca / all): the next one goes out 5 m before each -
+#    at 2 m PathFollowing reached the end of SUPER's trajectory to it before the next one arrived, and its
+#    "PF done" far from the final goal made flight_manager land in place.
+NGOALS=$(grep -cE '^ *-?[0-9.]+ *,' ${ROS2_WS}/src/realgazebo_fastplanner_adapters/config/goals_super_far.csv)
+REACH=$([ "${NGOALS}" -gt 1 ] && echo 5.0 || echo 2.0)
 (
     sleep 20
     ros2 run realgazebo_fastplanner_adapters csv_goal_pub --ros-args \
         -p csv_path:=${ROS2_WS}/src/realgazebo_fastplanner_adapters/config/goals_super_far.csv \
         -p goal_pose_topic:=/planning/click_goal \
-        -p sequential:=true -p reach_radius:=2.0 -p goal_repub_count:=3 \
+        -p sequential:=true -p reach_radius:=${REACH} -p goal_repub_count:=3 \
         2>&1 | tee ${LOGS}/csv_goal_pub.log
 ) &

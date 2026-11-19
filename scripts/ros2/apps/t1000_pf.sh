@@ -120,10 +120,19 @@ ros2 run pathfollowing node_pathfollowing --ros-args ${PF_ARGS} -p vehicle_type:
     ${PF_VEHICLE_ARGS} 2>&1 | tee ${LOGS}/node_pathfollowing.log &
 
 # 4) T1000's path + command -> PF
-python3 ${APP_DIR}/t1000_pf_node.py --ros-args \
+# CA_PREFIX_PATH (the integrated test, scripts/dev/ctrack_test.sh all): the planned prefix first - T1000's path /
+# speed go to /ca/*, prefix_relay_node.py hands them to the follower after the prefix
+PREFIX_REMAP=""
+if [ -n "${CA_PREFIX_PATH:-}" ]; then
+    PREFIX_REMAP="-r /local_waypoint_setpoint_to_PF:=/ca/local_waypoint_setpoint_to_PF -r /desired_speed:=/ca/desired_speed"
+    python3 ${APP_DIR}/prefix_relay_node.py --ros-args -p "prefix_path:=${CA_PREFIX_PATH}" \
+        -p prefix_speed:=$(printf '%.2f' ${CA_PREFIX_SPEED:-5}) -p altitude:=${ALT} 2>&1 | tee ${LOGS}/prefix_relay.log &
+fi
+python3 ${APP_DIR}/t1000_pf_node.py --ros-args ${PREFIX_REMAP} \
     -p lookahead_m:=$(printf '%.2f' ${T1000_PF_LOOKAHEAD:-3}) -p path_extension:=$(printf '%.2f' ${PATH_EXT}) \
     -p safety_radius_m:=$(printf '%.3f' ${SAFETY_R}) -p safety_gain:=$(printf '%.3f' ${SAFETY_K}) \
     -p goal_handover_m:=$(printf '%.3f' ${SUPER_PF_GOAL_HANDOVER_M:-3.0}) \
+    -p stall_restart_s:=$([ -n "${NOCLIMB_LEGS:-}" ] && echo ${T1000_PF_STALL_RESTART:-3.0} || echo 0.0) \
     -p log_csv:=${LOGS}/t1000_pf.csv 2>&1 | tee ${LOGS}/t1000_pf_node.log &
 
 # 5) T1000 in dry-run: its full command on /t1000/cmd_preview, nothing to PX4 (--isaac-sim: the bridge's
@@ -139,9 +148,21 @@ T1000_FLIGHT_ALTITUDE_M=${ALT} python3 ${APP_DIR}/t1000_run.py \
 # 6) Flight FSM: arm (on go, on the vehicle), AUTO_TAKEOFF, OFFBOARD, forward PF's attitude, land at the goal
 GPS_ARGS=""
 [ -n "${NOCLIMB_GOAL_GPS:-}" ] && GPS_ARGS="-p goal_lat:=$(echo ${NOCLIMB_GOAL_GPS} | cut -d, -f1) -p goal_lon:=$(echo ${NOCLIMB_GOAL_GPS} | cut -d, -f2)"
+# NOCLIMB_LEGS "north,east,hold_s;..." (scenario C legs, D): the mission's goals in order, sent to the driver
+# before it arms (as noclimb_ca.sh); t1000_pf_node.py restarts T1000's straight path at each new goal
+LEGS=${NOCLIMB_LEGS:-}
+if [ -n "${LEGS}" ]; then
+    GPS_ARGS=""
+    (for i in $(seq 1 60); do
+        sleep 1
+        grep -qs "mission: [0-9]* legs" ${LOGS}/flight_driver.log && break
+        ros2 topic pub --once /flight_driver/mission std_msgs/msg/String "{data: '${LEGS}'}" > /dev/null 2>&1
+     done) &
+fi
 ros2 run flight_driver flight_driver --ros-args -p mission:=ca \
     -p takeoff_altitude:=${ALT} -p goal_north_m:=${GOAL_Y} -p goal_east_m:=${GOAL_X} ${GPS_ARGS} \
     -p goal_handover_radius_m:=$(printf '%.3f' ${SUPER_PF_GOAL_HANDOVER_M:-3.0}) \
+    -p wait_mission:=$([ -n "${LEGS}" ] && echo true || echo false) \
     -p require_go:=$([ "${NOCLIMB_REQUIRE_GO:-0}" = 1 ] && echo true || echo false) \
     -p ekf_settle_s:=$(printf '%.1f' ${NOCLIMB_EKF_SETTLE:-$([ ${LIVOX} = 1 ] && echo 30 || echo 5)}) \
     -p speed_limit_mps:=$(printf '%.2f' ${NOCLIMB_SPEED_LIMIT:-$(python3 -c "print(${T1000_VX_CAP:-3} + 2.5)")}) \

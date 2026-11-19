@@ -1,6 +1,6 @@
 # A4VAI 2세부 SILS·PILS 시뮬레이터 설치 및 실행 매뉴얼
 
-> 기본 흐름(실증 시나리오 시험맵, PILS)은 `README.md` 4–5장에 있습니다. 이 문서는 설치 세부입니다.
+> 기본 흐름(실증 시나리오 시험맵, PILS)은 `README.md` 4–5장에 있습니다. 이 문서는 설치 세부와 시험(단위·쌍·통합) 사용법입니다.
 
 ## 요구사항
 
@@ -21,6 +21,85 @@ AirSim ROS2 브리지(Cosys-AirSim 5.4-v3.2) 소스 빌드 → ROS2 워크스페
 리소스·AirSim 바이너리(release 자동 다운로드) → 실증 시나리오 시험맵(A4VAI-Unreal 릴리스의 Unreal 패키징 빌드,
 SHA256 확인; `~/Downloads/A4VAI-Sim-v1.0`에 릴리스 파일 사본을 넣어 두면 그걸 씀)까지 전부 자동.
 각 단계는 멱등이라 실패 시 재실행하면 이어서 진행된다.
+
+## 시험: 단위·쌍·통합
+
+실증 시나리오 시험맵에서 경로계획(PP)·경로추종(PF)·충돌회피(CA)를 하나씩(단위), 둘씩(PP-PF, PF-CA), 셋 모두(통합) 시험합니다.
+충돌회피는 세 가지 중에서 고르고, 경로추종은 PathFollowing(MPPI)입니다.
+
+### 명령
+
+```bash
+TEST_CA=<회피> ./scripts/ctrack.sh test <시험> <이름> [프로필]
+./scripts/ctrack.sh test table          # 셀마다 가장 최근 결과
+```
+
+- `<시험>`: `pp`, `pf`, `ca`, `pp-pf`, `pf-ca`, `all`
+- `TEST_CA`: `inha`(인하대 학습 정책, 기본) · `jbnu`(전북대 T1000) · `super`(SUPER)
+- `<프로필>`: 기체와 인하대 정책(기본 `x8_5sm2`; 목록은 `./scripts/ctrack.sh profiles`)
+- 시뮬레이터가 하나라 한 번에 하나만 돌립니다. Unreal은 자동으로 뜹니다.
+
+```bash
+./scripts/ctrack.sh test pp t_pp
+./scripts/ctrack.sh test pf t_pf
+TEST_CA=jbnu  ./scripts/ctrack.sh test ca    t_ca_jbnu
+./scripts/ctrack.sh test pp-pf t_pppf
+TEST_CA=super ./scripts/ctrack.sh test pf-ca t_pfca_super
+TEST_CA=inha  ./scripts/ctrack.sh test all   t_all_inha
+```
+
+### 시험별 구성
+
+| 시험 | 코스 | 날리는 것 |
+|---|---|---|
+| `pp` | 시나리오 A 경로 START → WP1 (천막 회피) | Hybrid PP 계획만, 비행 없음 |
+| `pf` | 시나리오 B 직선, 바람 구역 | PathFollowing이 정해진 경로를 비행 |
+| `ca` | 시나리오 C, WP3 → GOAL (기둥·RC카·나무 벽·풍선) | 회피 알고리즘의 기본 구성: 인하대·SUPER는 PathFollowing을 거치고, 전북대는 T1000이 PX4에 속도 명령을 직접 보냄 |
+| `pp-pf` | 시나리오 A | Hybrid PP 경로를 PathFollowing이 비행 |
+| `pf-ca` | 시나리오 C 구간 WP3 → WP5 → WP6 → GOAL | 회피 명령을 PathFollowing이 비행 |
+| `all` | 시나리오 D | Hybrid PP 경로를 PathFollowing이 WP3까지(B 코스 원·사각·나선 포함), 이후 회피 알고리즘이 WP5 → WP6 → GOAL |
+
+| `TEST_CA` | 앱 (`scripts/ros2/apps/`) | 비고 |
+|---|---|---|
+| `inha` | `noclimb_ca.sh` | 프로필의 정책(`NOCLIMB_POLICY_DIR`) |
+| `jbnu` | `t1000.sh`(`ca`), `t1000_pf.sh`(그 밖) | 전북대 T1000 Control 445 |
+| `super` | `super_pf.sh` | PathFollowing MPPI (`SUPER_PF_GUID=2`) |
+
+`all`에서 전북대·SUPER는 `prefix_relay_node.py`가 계획 경로를 먼저 PathFollowing에 주고, 끝점 근처에서 회피 알고리즘에 넘깁니다.
+
+### 합격 기준
+
+| 시험 | 기준 |
+|---|---|
+| `pp` | 경로 찾음, 최단 경로의 120 % 이하, 계획 1초 이하 (RFP 기준은 Jetson에서 잽니다) |
+| `pf`, `pp-pf` | 경로 끝에 착륙, 경로 오차 p95 1 m 이하·최대 3 m 이하 |
+| `ca`, `pf-ca` | 접촉 없음(모든 장애물과 프로펠러 끝 여유 > 0), 목표 2 m 안 착륙 |
+| `all` | 계획 경로 구간 p95 1 m·최대 3 m 이하, 접촉 없음, 목표 2 m 안 착륙 |
+
+### 옵션
+
+| 변수 | 기본 | 뜻 |
+|---|---|---|
+| `TEST_SPEED` | 5 m/s | 경로추종 속도 (`pf`, `pp-pf`, `all`의 계획 경로) |
+| `TEST_WIND` | 5 m/s | 바람 구역 세기, 0이면 끔 (`pf`, `all`에만) |
+| `TEST_ALT` | 1.7 m | 비행 높이 (지면 위) |
+| `TEST_TIMEOUT` | 600 s | 한 비행의 제한 시간 |
+
+`ca`·`pf-ca`와 `all`의 회피 구간은 각 알고리즘의 기본 속도(최대 5 m/s)로 납니다.
+`scripts/dev/ctrack_demo.sh`의 `DEMO_*` 손잡이와 프로필 값(`NOCLIMB_*` 등)도 명령 앞에 붙여 바꿀 수 있습니다.
+
+### 결과 보기
+
+- `~/Documents/A4VAI-SITL/ROS2/test_runs/<이름>/test_summary.txt`: 합격·불합격과 기준별 값
+- 같은 폴더의 `demo_summary.txt`(경로 오차, 장애물별 최근접 거리), `px4_sitl.ulg`(PX4 로그), 노드 로그
+- `test_runs/test_matrix.csv`: 모든 실행 기록. `./scripts/ctrack.sh test table`이 셀마다 최근 결과를 표로 보여 줍니다.
+
+### 알아 둘 점
+
+- RC카는 계속 움직이므로 같은 시험도 카트와 마주치는 시점에 따라 결과가 달라질 수 있습니다. 성공률은 같은 시험을 여러 번 돌려서 보세요.
+- `pp`·`pp-pf`·`all`은 Hybrid PP 라이브러리가 필요합니다. 휠 파일은 이 저장소에 없으니 경로계획 담당에게 받아
+  `scripts/dev/ctrack_pp.sh --install <휠 파일>`로 한 번 설치하세요(GPU 필요).
+- 끝나면 `./scripts/ctrack.sh stop`으로 시뮬레이터를 닫습니다.
 
 ## 제거
 
