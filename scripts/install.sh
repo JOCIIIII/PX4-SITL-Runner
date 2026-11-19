@@ -20,7 +20,7 @@
 #
 # The C-Track packaged build (A4VAISIM-Linux.tar.gz, ctrack-gazebo-prebuilt.tar.gz, SHA256SUMS) comes from the
 # A4VAI-Unreal GitHub release ${UNREAL_REF} ("A4VAI Sim v1.0"); a copy of the three files in ~/Downloads/${UNREAL_REF}
-# (e.g. from the lab NAS) is used instead when present. An install of an earlier release (inhousesim-v1.0, the
+# (e.g. for an offline install) is used instead when present. An install of an earlier release (inhousesim-v1.0, the
 # CTrackSim build) is moved to ${UNREAL_REF} when this runs again.
 #
 # Overrides (environment): ROS2_SRC_REPO, ROS2_SRC_BRANCH, UNREAL_REPO, UNREAL_REF,
@@ -45,7 +45,7 @@ LogToFile install "$0" "$@"
 ROS2_SRC_REPO=${ROS2_SRC_REPO:-"https://github.com/JOCIIIII/A4VAI-Algorithms-ROS2.git"}
 ROS2_SRC_BRANCH=${ROS2_SRC_BRANCH:-"inhousesim-v1.0"}
 # C-Track Unreal field (UE 5.8 + Cosys-AirSim 3.5): the repo (Gazebo entry, layouts, settings, run_unreal.sh)
-# and the packaged build made from the same commit by its package.sh (release assets; also on the lab NAS)
+# and the packaged build made from the same commit by its package.sh (release assets)
 UNREAL_REPO=${UNREAL_REPO:-"https://github.com/JOCIIIII/A4VAI-Unreal.git"}
 UNREAL_REF=${UNREAL_REF:-"A4VAI-Sim-v1.0"}
 UNREAL_ASSET_DIR=${UNREAL_ASSET_DIR:-"${HOME}/Downloads/${UNREAL_REF}"}
@@ -228,11 +228,11 @@ if [ ! -x ${UNREAL_DIR}/packaged/A4VAISIM-Linux/A4VAISIM.sh ] || [ ! -x ${UNREAL
         else
             EchoGreen "[install.sh] DOWNLOADING ${a} (the packaged build is ~400 MB)..."
             wget -q --show-progress ${UNREAL_ASSET_URL}/${a} -O ${ASSETS}/${a}.part && mv ${ASSETS}/${a}.part ${ASSETS}/${a} || \
-                Fail "download failed: ${UNREAL_ASSET_URL}/${a} - or copy the three files (lab NAS) into ${UNREAL_ASSET_DIR} and re-run"
+                Fail "download failed: ${UNREAL_ASSET_URL}/${a} - or put the three release files into ${UNREAL_ASSET_DIR} and re-run"
         fi
     done
     (cd ${ASSETS} && sha256sum -c --quiet SHA256SUMS) || \
-        { rm -f ${ASSETS}/*; Fail "checksum mismatch - re-run (downloads again), or copy the three files again"; }
+        { rm -f ${ASSETS}/*; Fail "checksum mismatch - re-run (downloads again); if ${UNREAL_ASSET_DIR} holds copies of the files, replace or remove them first"; }
     mkdir -p ${UNREAL_DIR}/packaged
     rm -rf ${UNREAL_DIR}/packaged/A4VAISIM-Linux
     tar -xzf ${ASSETS}/A4VAISIM-Linux.tar.gz -C ${UNREAL_DIR}/packaged || Fail "extracting the packaged build failed"

@@ -19,7 +19,7 @@ This repo holds only scripts, configs, airframe models and docs. Sources and bin
 - `JOCIIIII/A4VAI-Algorithms-ROS2` branch `inhousesim-v1.0` (submodules `A4VAI-PathFollowing`, `super` on their
   `inhousesim-v1.0` branches, `px4_msgs` release/1.16) → `~/Documents/A4VAI-SITL/ROS2/ros2_ws/src`
 - `JOCIIIII/A4VAI-Unreal` tag `A4VAI-Sim-v1.0` (sparse checkout) + its release assets `A4VAISIM-Linux.tar.gz`
-  (packaged Shipping build), `ctrack-gazebo-prebuilt.tar.gz`, `SHA256SUMS` (also on the lab NAS; a copy in
+  (packaged Shipping build), `ctrack-gazebo-prebuilt.tar.gz`, `SHA256SUMS` (for an offline install a copy in
   `~/Downloads/A4VAI-Sim-v1.0` is used instead of downloading) → `~/Documents/A4VAI-SITL/A4VAI-Unreal`
 - PX4-Autopilot v1.16.0 + `A4VAI-Custom-PX4-File` → `~/Documents/A4VAI-SITL/PX4-Autopilot`
 
