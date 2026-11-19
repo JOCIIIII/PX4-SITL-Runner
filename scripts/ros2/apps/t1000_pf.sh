@@ -160,6 +160,7 @@ if [ -n "${LEGS}" ]; then
      done) &
 fi
 ros2 run flight_driver flight_driver --ros-args -p mission:=ca \
+    -p ready_topic:=/collision_avoidance/ready \
     -p takeoff_altitude:=${ALT} -p goal_north_m:=${GOAL_Y} -p goal_east_m:=${GOAL_X} ${GPS_ARGS} \
     -p goal_handover_radius_m:=$(printf '%.3f' ${SUPER_PF_GOAL_HANDOVER_M:-3.0}) \
     -p wait_mission:=$([ -n "${LEGS}" ] && echo true || echo false) \

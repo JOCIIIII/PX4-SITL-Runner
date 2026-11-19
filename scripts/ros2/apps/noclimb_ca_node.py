@@ -30,7 +30,7 @@ path altitude. CA engages once flight_manager hands control to PF (arm + 10 s: c
 hover phases) and the vehicle is at the path altitude - before that nothing is published,
 so PF stays idle and the policy's stall timer does not run while the vehicle is held.
 With flight_driver (goal_topic, the vehicle) the driver's goal message is the signal instead,
-and /noclimb/ready (pose, lidar driver and /cloud live) is what lets the driver arm.
+and /collision_avoidance/ready (pose, lidar driver and /cloud live) is what lets the driver arm.
 Within final_switch_m of the goal the policy stops (training ended 0.5 m from the goal,
 agent.md section 8) and PF gets a fixed path to the goal, flown like the SUPER bridge's
 final approach (goal brake sqrt(2 * 2 * d) >= 0.5 m/s, 0.5 m/s inside 1.5 m); PF declares
@@ -396,8 +396,8 @@ class NoClimbCA(Node):
         self.create_subscription(Float32, '/noclimb/speed_cap', self.speed_cap_cb, 10)
         self.paused = False                       # flight_driver holds the vehicle (/flight_driver/pause)
         self.create_subscription(Bool, '/flight_driver/pause', lambda m: setattr(self, 'paused', bool(m.data)), 10)
-        # /noclimb/ready (1 Hz): pose, lidar driver and registered returns all live - flight_driver arms only on it
-        self.ready_pub = self.create_publisher(Bool, '/noclimb/ready', 10)
+        # /collision_avoidance/ready (1 Hz): pose, lidar driver and registered returns all live - flight_driver arms only on it
+        self.ready_pub = self.create_publisher(Bool, '/collision_avoidance/ready', 10)
         self.create_timer(1.0, self.ready)
         self.create_timer(self.pol.dt, self.tick)              # 20 Hz (policy_hz)
         self.create_timer(0.1, self.heartbeat)

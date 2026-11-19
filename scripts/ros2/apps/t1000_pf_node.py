@@ -26,7 +26,7 @@ local origin is not the take-off point, so a fixed path cannot be given up front
 
   in : /t1000/cmd_preview, /odom, /cloud, /fmu/out/vehicle_status_v1, /flight_driver/goal
   out: /local_waypoint_setpoint_to_PF, /desired_speed, /path_planning_heartbeat, /t1000/path,
-       /collision_avoidance_heartbeat, /noclimb/ready (flight_driver arms only on it), log_csv
+       /collision_avoidance_heartbeat, /collision_avoidance/ready (flight_driver arms only on it), log_csv
 """
 import math
 from collections import deque
@@ -91,7 +91,7 @@ class T1000PF(Node):
         self.speed_pub = self.create_publisher(Float32, '/desired_speed', 10)
         self.pp_hb = self.create_publisher(Bool, '/path_planning_heartbeat', 10)
         self.ca_hb = self.create_publisher(Bool, '/collision_avoidance_heartbeat', 10)
-        self.ready_pub = self.create_publisher(Bool, '/noclimb/ready', 10)
+        self.ready_pub = self.create_publisher(Bool, '/collision_avoidance/ready', 10)
         self.path_pub = self.create_publisher(Path, '/t1000/path', 10)
         self.create_timer(0.5, self.publish_t1000_path)
         self.create_subscription(Float32MultiArray, '/t1000/cmd_preview', self.cmd_cb, 10)

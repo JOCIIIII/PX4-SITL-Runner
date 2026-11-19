@@ -22,7 +22,7 @@ through its callbacks (no simulator, fake clock, the ca_big policy): the driver 
      6 m, and 0.7 s everywhere with cmd_tau_near_s -1
   9-11. shadow mode, reference from the start, voxel filter
   12. goal_topic (flight_driver): no engagement before the driver's goal, heights referenced from it, later
-     goals ignored once engaged; /noclimb/ready only with a pose and a fresh /cloud
+     goals ignored once engaged; /collision_avoidance/ready only with a pose and a fresh /cloud
 Exit status 1 on a failed check. Run it inside the ROS image:
   docker run --rm -v $HOME/Documents/A4VAI-SITL/ROS2:/home/user/workspace/ros2 \
       -v $HOME/PX4-SITL-Runner:$HOME/PX4-SITL-Runner:ro --entrypoint bash jociiiii/a4vai:inhousesim-v0.9 -c \
@@ -350,7 +350,7 @@ def main():
     rclpy.try_shutdown()
 
     # 12. goal_topic (flight_driver): no engagement before the driver's goal, heights referenced from it
-    #     (not from the first pose), later goals ignored once engaged; /noclimb/ready only with live inputs
+    #     (not from the first pose), later goals ignored once engaged; /collision_avoidance/ready only with live inputs
     print('12. goal from the flight driver')
     rclpy.init(args=['--ros-args', '-p', f'policy_dir:={POLICY_DIR}', '-p', 'policy:=ca_big', '-p', 'ref_from_start:=true',
                      '-p', 'ground_z_m:=-0.23', '-p', 'agl_offset_m:=0.23', '-p', 'altitude:=3.0',
@@ -372,7 +372,7 @@ def main():
     check('ready: nothing before a /cloud', not readies)
     g.cloud_cb(cloud(clock[0]))
     g.ready()
-    check('ready: pose and a fresh /cloud -> /noclimb/ready', readies == [True])
+    check('ready: pose and a fresh /cloud -> /collision_avoidance/ready', readies == [True])
     for _ in range(40):                                  # 2 s armed, at the path height, no goal yet
         clock[0] += 0.05
         g.cloud_cb(cloud(clock[0]))
@@ -395,7 +395,7 @@ def main():
     readies.clear()
     clock[0] += 2.0
     g.ready()
-    check('ready: /cloud 2 s old -> no /noclimb/ready', not readies)
+    check('ready: /cloud 2 s old -> no /collision_avoidance/ready', not readies)
     g.destroy_node()
     rclpy.try_shutdown()
     sys.exit(0 if ok else 1)
