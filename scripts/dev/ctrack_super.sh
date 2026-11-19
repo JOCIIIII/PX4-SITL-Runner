@@ -73,7 +73,7 @@ AIRFRAME=${7:-x8}
 APP=${CTRACK_APP:-super_pf}
 MODE=${CTRACK_MODE:-sils}
 if [ "$MODE" = pils ]; then
-    : ${ONBOARD_IP:?CTRACK_MODE=pils needs ONBOARD_IP (the onboard computer, e.g. Tailscale 100.64.0.135)}
+    : ${ONBOARD_IP:?CTRACK_MODE=pils needs ONBOARD_IP (the onboard computer: its LAN or Tailscale address)}
     PILS_DOMAIN=${PILS_DOMAIN:-0}
 fi
 REPO=$(dirname $(dirname $(dirname $(readlink -f "$0"))))
@@ -82,7 +82,7 @@ W=~/Documents/A4VAI-SITL
 # else the developers' editor checkout
 if [ -z "${CTRACK_DIR:-}" ]; then
     CTRACK_DIR=$W/A4VAI-Unreal
-    [ -d "$CTRACK_DIR" ] || CTRACK_DIR=$HOME/Desktop/00_Project/00_A4VAI/00_Development/00_Simulator/02_InhouseSim/Unreal
+    [ -d "$CTRACK_DIR" ] || CTRACK_DIR=$HOME/Desktop/00_Project/00_A4VAI/00_Development/00_Simulator/02_InhouseSim/00_Unreal/00_Map
 fi
 CTRACK=$CTRACK_DIR
 # CTRACK_MAP: CTrack (default) or Yard - the Inha aerospace campus courtyard from a SLAM scan (waypoints START,
@@ -122,6 +122,39 @@ EOF
 APP_ENV=()
 if [ "$APP" = noclimb_ca ]; then
     : ${NOCLIMB_MAX_TILT_RATE:=0.8}; export NOCLIMB_MAX_TILT_RATE
+    # CTRACK_LEGS: the mission's goals in order (layout names or X:Y, comma-separated; all but the last pass-through)
+    # and CTRACK_PREFIX: a layout-frame path (CSV as CTRACK_PATH) flown by PathFollowing alone before the policy -
+    # the final demonstration's integrated flight D: the Hybrid PP path Start -> WP2 without avoidance, then the
+    # policy WP2 -> WP3 -> WP4 -> Goal. Both go to noclimb_ca.sh as NOCLIMB_LEGS / NOCLIMB_PREFIX_PATH (metres from
+    # the take-off point FROM).
+    if [ -n "${CTRACK_LEGS:-}${CTRACK_PREFIX:-}" ]; then
+        eval "$(python3 - "$LAYOUT" "$FROM" "${CTRACK_LEGS:-}" "${CTRACK_PREFIX:-}" <<'PYEOF'
+import json, math, sys
+wp = json.load(open(sys.argv[1]))['waypoints']
+pt = lambda s: tuple(wp[s]) if s in wp else tuple(float(v) for v in s.replace(':', ',').split(','))
+fx, fy = pt(sys.argv[2])
+if sys.argv[3]:
+    names = [s.strip() for s in sys.argv[3].split(',') if s.strip()]
+    legs = []
+    for i, n in enumerate(names):
+        x, y = pt(n)
+        legs.append(f'{-(y - fy):.2f},{x - fx:.2f},{-1 if i < len(names) - 1 else 0}')
+    print(f"export NOCLIMB_LEGS='{';'.join(legs)}'")
+if sys.argv[4]:
+    pts = []
+    for line in open(sys.argv[4]):
+        line = line.split('#')[0].strip()
+        try:
+            v = [float(c) for c in line.split(',') if c.strip()]
+        except ValueError:
+            continue
+        if len(v) >= 2 and (not pts or math.hypot(v[0] - pts[-1][0], v[1] - pts[-1][1]) > 0.05):
+            pts.append((v[0], v[1]))
+    print(f"export NOCLIMB_PREFIX_PATH='{';'.join(f'{x - fx:.2f},{-(y - fy):.2f}' for x, y in pts)}'")
+PYEOF
+)" || exit 1
+        echo "[ctrack] legs: ${NOCLIMB_LEGS:-none}; prefix path: $(echo "${NOCLIMB_PREFIX_PATH:-}" | tr ';' '\n' | grep -c .) points"
+    fi
     while IFS='=' read -r k v; do
         [ -n "${!k+x}" ] || APP_ENV+=(-e "$k=$v")
     done < <(grep -E '^NOCLIMB_[A-Z_]+=' $REPO/envs/ros2.env | sed -E 's/[[:space:]]+#.*$//; s/"//g')
@@ -135,10 +168,85 @@ elif [ "$APP" = t1000 ] || [ "$APP" = t1000_pf ]; then
         : ${NOCLIMB_MAX_TILT_RATE:=0.8}; export NOCLIMB_MAX_TILT_RATE
         for k in $(compgen -e | grep '^NOCLIMB_'); do APP_ENV+=(-e "$k=${!k}"); done
     fi
+elif [ "$APP" = mission ]; then
+    # PathFollowing alone along a path (apps/mission.sh + flight_driver wp_local; final demonstration scenarios A
+    # and B, PF courses): CTRACK_PATH = a layout-frame path file, rows "X,Y" or "X,Y,h" [m] (h above the ground,
+    # default ALT; a header line and '#' comments are skipped) - scripts/dev/ctrack_pp.py writes one from the
+    # Hybrid PP plan. The vehicle takes off at FROM; SPEED is the PathFollowing cruise speed.
+    : ${CTRACK_PATH:?CTRACK_APP=mission needs CTRACK_PATH (a layout-frame path CSV)}
+    python3 - "$CTRACK_PATH" "$LAYOUT" "$FROM" "$ALT" "$REST" "$OUT/mission_local.csv" <<'PYEOF' || exit 1
+import json, math, sys
+path, layout, frm, alt, rest, out = sys.argv[1:7]
+wp = json.load(open(layout))['waypoints']
+fx, fy = wp[frm] if frm in wp else map(float, frm.split(','))
+pts = []
+for line in open(path):
+    line = line.split('#')[0].strip()
+    if not line:
+        continue
+    try:
+        v = [float(c) for c in line.replace(';', ',').split(',') if c.strip()]
+    except ValueError:
+        continue                                   # header
+    x, y = v[0], v[1]
+    h = v[2] if len(v) > 2 else float(alt)
+    if pts and math.hypot(x - pts[-1][0], y - pts[-1][1]) < 0.05:
+        continue
+    pts.append((x, y, h))
+if len(pts) < 2:
+    sys.exit(f'[ctrack] {path}: fewer than 2 points')
+with open(out, 'w') as f:                          # flight_driver wp_local: north, east, height above take-off
+    for x, y, h in pts:
+        f.write(f'{-(y - fy):.3f},{x - fx:.3f},{h - float(rest):.3f}\n')
+L = sum(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(pts, pts[1:]))
+print(f'[ctrack] mission path {path}: {len(pts)} points, {L:.1f} m, starts {math.hypot(pts[0][0] - fx, pts[0][1] - fy):.1f} m from {frm}')
+PYEOF
+    APP_ENV+=(-e MISSION_CSV=$CMNT/mission_local.csv -e MISSION_TYPE=wp_local -e MISSION_SPEED=$SPEED
+              -e MISSION_ALT=$Z -e MISSION_EKF_SETTLE=${MISSION_EKF_SETTLE:-5})
+    for k in $(compgen -e | grep '^MISSION_' | grep -vE '^MISSION_(CSV|TYPE|SPEED|ALT|EKF_SETTLE)$'); do
+        APP_ENV+=(-e "$k=${!k}")
+    done
+fi
+# CTRACK_WIND=SPEED [m/s]: the fan-bank wind of the layout's wind_zones (scenario B: three blowers beside the
+# WP2 -> WP3 lane) blows at SPEED through the vehicle plugin scripts/px4/plugins/gazebo_zone_wind_plugin.cpp -
+# rotor drag (PX4's motor-model wind) plus body drag, with Ornstein-Uhlenbeck gusts: CTRACK_WIND_GUST (std,
+# default 1.0 m/s), CTRACK_WIND_TAU (default 2.0 s), CTRACK_WIND_CDA (body CdA, default x8 0.2 / x500 0.08 m^2),
+# CTRACK_WIND_RAMP (fall-off outside the box, default 2.0 m). The layout's own body-drag-only world plugin is set
+# to 0 m/s meanwhile. The plugin reads the zones from the PX4 workspace the container mounts.
+ZW_FILE=$W/PX4-Autopilot/ctrack_zone_wind.txt
+rm -f "$ZW_FILE"
+if [ -n "${CTRACK_WIND:-}" ]; then
+    python3 - "$LAYOUT" "$ZW_FILE" "$CTRACK_WIND" "$AIRFRAME" <<'PYEOF' || exit 1
+import json, os, sys
+lay, out, speed, frame = json.load(open(sys.argv[1])), sys.argv[2], float(sys.argv[3]), sys.argv[4]
+gust = float(os.environ.get('CTRACK_WIND_GUST', 1.0))
+tau = float(os.environ.get('CTRACK_WIND_TAU', 2.0))
+cda = float(os.environ.get('CTRACK_WIND_CDA', 0.2 if frame == 'x8' else 0.08))
+ramp = float(os.environ.get('CTRACK_WIND_RAMP', 2.0))
+zones = lay.get('wind_zones', [])
+if not zones:
+    sys.exit('[ctrack] CTRACK_WIND: the layout has no wind_zones')
+with open(out, 'w') as f:
+    f.write('# name xmin xmax ymin ymax zmin zmax wx wy wz gust_std gust_tau cd_area ramp  (Gazebo ENU: x = X, y = -Y)\n')
+    for z in zones:
+        (x0, x1), (y0, y1), (z0, z1) = z['x_range'], z['y_range'], z['z_range']
+        dx, dy, dz = z['direction']
+        f.write(f"{z['name']} {x0} {x1} {-y1} {-y0} {z0} {z1} {dx * speed:.3f} {-dy * speed:.3f} {dz * speed:.3f} "
+                f"{gust} {tau} {cda} {ramp}\n")
+        print(f"[ctrack] wind {z['name']}: {speed} m/s toward {z['direction']} in X {x0}..{x1}, Y {y0}..{y1}, "
+              f"gust std {gust} m/s tau {tau} s, body CdA {cda} m^2 (+ rotor drag)")
+PYEOF
+    cp "$ZW_FILE" "$OUT/zone_wind.txt"
 fi
 # SIM_LIDAR=mid360: the A4VAI-Unreal Mid-360 pattern lidar (run_unreal.sh settings/settings_gazebo_mid360.json);
 # the apps de-skew it by shot order instead of azimuth
 [ -n "${SIM_LIDAR:-}" ] && APP_ENV+=(-e "SIM_LIDAR=$SIM_LIDAR")
+# CTRACK_LLM=1: the mission comes from the operator's words (noclimb_ca.sh LLM_MISSION; talk to it with
+# scripts/ctrack.sh llm): the take-off point in the layout frame and the flight height go to the mission node
+if [ "${CTRACK_LLM:-0}" = 1 ]; then
+    APP_ENV+=(-e LLM_MISSION=1 -e "LLM_ORIGIN_XY=$SX,$(python3 -c "print(-($SY))")" -e "LLM_FLIGHT_ALT=$ALT")
+    for k in LLM_URL LLM_MODEL LLM_PLACES; do [ -n "${!k:-}" ] && APP_ENV+=(-e "$k=${!k}"); done
+fi
 echo "[ctrack] $FROM -> $GOALWP ($AIRFRAME, $APP): spawn Gazebo ($SX, $SY) yaw $SYAW; goal PX4 local ENU" \
      "($GX, $GY, $Z) = $ALT m above ground; SUPER max_vel $SPEED m/s, band ground $GROUND ceil $CEIL corridor z-margin $ZMARGIN"
 [ ${#APP_ENV[@]} -gt 0 ] && echo "[ctrack] app env: ${APP_ENV[*]}"
@@ -151,9 +259,9 @@ docker rm -f ctrack-sitl ros2-env pils-airsim >/dev/null 2>&1
 # (trigger_model / vehicle_model): for another airframe the world is generated from a copy naming
 # it - with "x8" the cart never started and the wind never blew (ctrack_x500_m360_ca_1)
 LAYOUT_GZ=$LAYOUT
-if [ "$AIRFRAME" != x8 ]; then
+if [ "$AIRFRAME" != x8 ] || [ -n "${CTRACK_WIND:-}" ]; then
     LAYOUT_GZ=$OUT/layout_$AIRFRAME.json
-    python3 - "$LAYOUT" "$LAYOUT_GZ" "$AIRFRAME" <<'PYEOF'
+    python3 - "$LAYOUT" "$LAYOUT_GZ" "$AIRFRAME" "${CTRACK_WIND:-}" <<'PYEOF'
 import json, os, sys
 lay = json.load(open(sys.argv[1]))
 # the copy lives in the run dir: files the layout names relative to itself (the Yard ground heightmap) by their
@@ -167,6 +275,9 @@ for m in lay.get('moving_obstacles', []):
 for w in lay.get('wind_zones', []):
     if w.get('vehicle_model') == 'x8':
         w['vehicle_model'] = sys.argv[3]
+    if sys.argv[4]:                  # CTRACK_WIND: the vehicle plugin blows instead of the world plugin, which at
+        w['speed_mps'] = 0.0         # 0 m/s would still drag on the airspeed (1/2 rho CdA |v| v) inside its box
+        w['cd_area'] = 0.0
 json.dump(lay, open(sys.argv[2], 'w'), indent=1)
 PYEOF
 fi
@@ -250,6 +361,7 @@ if [ "$MODE" = pils ]; then
              SUPER_PF_STATIC_MIN_Z=$([ "${CTRACK_HOLD:-1}" = 1 ] && python3 -c "print(round($Z - 0.5, 3))")
              AIRSIM_IP=${PILS_AIRSIM_IP:-$(ip route get "$ONBOARD_IP" | awk '{for (i = 1; i < NF; i++) if ($i == "src") print $(i + 1)}')})
     [ -n "${ONBOARD_IMAGE:-}" ] && ONB_ENV+=(ONBOARD_IMAGE=$ONBOARD_IMAGE)
+    [ -n "${ONBOARD_RECORDER:-}" ] && ONB_ENV+=(ONBOARD_RECORDER=$ONBOARD_RECORDER)      # the flight_recorder there (off by default)
     if [ "${PILS_LINK:-lan}" = wan ]; then
         CW=/home/user/workspace/ros2
         docker run -d --rm --name pils-airsim --network host -e ROS_DOMAIN_ID=88 -e AIRSIM_IP=127.0.0.1 \
@@ -291,8 +403,11 @@ T0=$(date +%s)
 until docker exec ros2-env test -f /home/user/workspace/ros2/ros2_ws/install/setup.bash 2>/dev/null; do
     sleep 2; [ $(( $(date +%s) - T0 )) -gt 120 ] && { echo "[ctrack] ros2-env did not come up"; exit 1; }
 done
-docker exec -d ros2-env bash -c "source /opt/ros/humble/setup.bash; source /home/user/workspace/ros2/ros2_ws/install/setup.bash; \
-    python3 /home/user/workspace/ros2/scripts/tools/flight_recorder.py $CMNT > $CMNT/recorder.log 2>&1"
+# SILS keeps the flight_recorder on (this PC has the CPU; airsim_odom.csv / lidar.csv feed the dev tools); ONBOARD_RECORDER=0 turns it off
+if [ "${ONBOARD_RECORDER:-1}" = 1 ]; then
+    docker exec -d ros2-env bash -c "source /opt/ros/humble/setup.bash; source /home/user/workspace/ros2/ros2_ws/install/setup.bash; \
+        python3 /home/user/workspace/ros2/scripts/tools/flight_recorder.py $CMNT > $CMNT/recorder.log 2>&1"
+fi
 fi
 
 # speed / height line on the Unreal screen while the run lasts (scripts/dev/airsim_hud.py; CTRACK_HUD=1 on).
@@ -346,6 +461,7 @@ docker exec ros2-env pkill -INT -f flight_recorder.py
 for i in $(seq 1 30); do [ -f "$OUT/cloud_map.npz" ] && break; sleep 1; done
 docker exec ros2-env bash -c "cp /home/user/workspace/ros2/logs/*.log /home/user/workspace/ros2/logs/*.pkl $CMNT/ 2>/dev/null; \
     cp /home/user/workspace/ros2/logs/noclimb_ca.csv /home/user/workspace/ros2/logs/noclimb_ca_dump.npz /home/user/workspace/ros2/logs/t1000_pf.csv $CMNT/ 2>/dev/null; \
+    mv /home/user/workspace/ros2/logs/photo_*.png /home/user/workspace/ros2/logs/llm_mission.jsonl /home/user/workspace/ros2/logs/person_search.jsonl /home/user/workspace/ros2/logs/search_results.json /home/user/workspace/ros2/logs/search $CMNT/ 2>/dev/null; \
     f=\$(ls -t /home/user/workspace/ros2/logs/[0-9]*.csv 2>/dev/null | head -1); [ -n \"\$f\" ] && cp \"\$f\" $CMNT/pf_log.csv; \
     f=\$(ls -t /home/user/workspace/ros2/logs/flight_driver_*.csv 2>/dev/null | head -1); [ -n \"\$f\" ] && cp \"\$f\" $CMNT/flight_driver.csv; \
     chmod -R a+rw $CMNT"

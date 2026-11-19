@@ -111,6 +111,10 @@ if [ "${NOCLIMB_LIDAR:-sim}" = livox ]; then
 else
     LIDAR_TOPIC=/airsim_node/SimpleFlight/lidar/points/RPLIDAR_A3
     LIDAR_YAW=0.0; LIDAR_ROLL=0.0; LIDAR_PITCH=0.0; LIDAR_X=0.0; LIDAR_Y=0.0
+    # NOCLIMB_SIM_LIDAR_YAW_DEG (dev, default 0): a wrong mount yaw on purpose - 180 replays the 2026-11-02 X8
+    # crash (the cloud turned round: what is ahead lands behind)
+    [ -n "${NOCLIMB_SIM_LIDAR_YAW_DEG:-}" ] && \
+        LIDAR_YAW=$(python3 -c "import math; print(f'{math.radians(${NOCLIMB_SIM_LIDAR_YAW_DEG}):.6f}')")
     ADAPTER_SRC="-p cloud_latency_s:=0.13 -p airsim_odom_topic:=/airsim_node/SimpleFlight/odom_local \
         -p deskew_mode:=$([ "${SIM_LIDAR:-grid}" = mid360 ] && echo index || echo azimuth)"
 fi
@@ -271,6 +275,7 @@ python3 ${APP_DIR}/noclimb_ca_node.py --ros-args \
     -p shadow_goal_ahead_m:=$(printf "%.1f" ${NOCLIMB_SHADOW_AHEAD:-30}) -p shadow_mask_rear_m:=$(printf "%.2f" ${NOCLIMB_SHADOW_MASK:-1.5}) \
     -p shadow_carry_height_m:=$(printf "%.2f" ${NOCLIMB_SHADOW_CARRY:-1.2}) \
     -p log_csv:=${LOGS}/noclimb_ca.csv -p dump_npz:=${LOGS}/noclimb_ca_dump.npz \
+    $([ -n "${NOCLIMB_PREFIX_PATH:-}" ] && echo "-p prefix_path:=${NOCLIMB_PREFIX_PATH} -p prefix_speed:=$(printf '%.2f' ${NOCLIMB_PREFIX_SPEED:-7.0}) -p prefix_end_m:=$(printf '%.2f' ${NOCLIMB_PREFIX_END:-2.0})") \
     2>&1 | tee ${LOGS}/noclimb_ca_node.log &
 [ "${SHADOW}" = 1 ] && { wait; exit; }
 
@@ -285,10 +290,45 @@ c.update(m['policies'].get('${POLICY}', {}).get('overrides', {})); print(c.get('
         GPS_ARGS="-p goal_lat:=$(echo ${NOCLIMB_GOAL_GPS} | cut -d, -f1) -p goal_lon:=$(echo ${NOCLIMB_GOAL_GPS} | cut -d, -f2)"
     fi
     LIVOX=$([ "${NOCLIMB_LIDAR:-sim}" = livox ] && echo 1 || echo 0)
+    # LLM_MISSION=1: the mission comes from the operator's words (llm_mission_node.py: Ollama at LLM_URL, model
+    # LLM_MODEL, places LLM_PLACES with the take-off point at LLM_ORIGIN_XY in that frame); flight_driver waits for
+    # its legs and arms on the node's go after the operator confirmed. Talk to it: scripts/ros2/tools/llm_console.py
+    LLM=$([ "${LLM_MISSION:-0}" = 1 ] && echo 1 || echo 0)
+    if [ ${LLM} = 1 ]; then
+        GPS_ARGS=""
+        python3 ${APP_DIR}/llm_mission_node.py --ros-args \
+            -p llm_url:=${LLM_URL:-http://127.0.0.1:11434} -p llm_model:=${LLM_MODEL:-gemma4:12b} \
+            -p places:=${LLM_PLACES:-${APP_DIR}/llm_places_ctrack.json} -p origin_xy:="${LLM_ORIGIN_XY:-0,0}" \
+            -p flight_alt:=$(printf '%.2f' ${LLM_FLIGHT_ALT:-${ALT}}) -p v_max:=$(printf '%.2f' ${V_MAX}) \
+            -p search_lane_m:=$(printf '%.1f' ${SEARCH_LANE_M:-10}) -p search_speed:=$(printf '%.1f' ${SEARCH_SPEED:-2}) \
+            -p log_dir:=${LOGS} 2>&1 | tee ${LOGS}/llm_mission.log &
+        # person search (task=search): YOLOX on the AirSim camera search_cam (Unreal with CTRACK_CAMERA=1 settings)
+        SEARCH_MODEL=${SEARCH_MODEL:-${WORKSPACE_DIR}/models/yolox_s.onnx}
+        if [ -f "${SEARCH_MODEL}" ]; then
+            python3 ${APP_DIR}/person_search_node.py --ros-args -p model:=${SEARCH_MODEL} \
+                -p llm_url:=${LLM_URL:-http://127.0.0.1:11434} -p llm_model:=${LLM_MODEL:-gemma4:12b} \
+                -p places:=${LLM_PLACES:-${APP_DIR}/llm_places_ctrack.json} -p origin_xy:="${LLM_ORIGIN_XY:-0,0}" \
+                -p log_dir:=${LOGS} 2>&1 | tee ${LOGS}/person_search.log &
+        fi
+    fi
+    # NOCLIMB_LEGS "north,east,hold_s;..." (metres from the take-off point, hold -1 = pass through): the mission's
+    # goals in order (the final demonstration's WP2 -> WP3 -> WP4 -> Goal); sent to the driver before it arms.
+    # NOCLIMB_PREFIX_PATH "e,n;..." (same frame): flown by PathFollowing alone before the policy (scenario D: the
+    # Hybrid PP path Start -> WP2 at NOCLIMB_PREFIX_SPEED), ending on the first leg.
+    LEGS=${NOCLIMB_LEGS:-}
+    if [ -n "${LEGS}" ]; then
+        GPS_ARGS=""
+        (for i in $(seq 1 60); do
+            sleep 1
+            grep -qs "mission: [0-9]* legs" ${LOGS}/flight_driver.log && break
+            ros2 topic pub --once /flight_driver/mission std_msgs/msg/String "{data: '${LEGS}'}" > /dev/null 2>&1
+         done) &
+    fi
     ros2 run flight_driver flight_driver --ros-args -p mission:=ca \
         -p takeoff_altitude:=${ALT} -p goal_north_m:=${GOAL_Y} -p goal_east_m:=${GOAL_X} ${GPS_ARGS} \
         -p goal_handover_radius_m:=$(printf '%.3f' ${SUPER_PF_GOAL_HANDOVER_M:-3.0}) \
-        -p require_go:=$([ "${NOCLIMB_REQUIRE_GO:-0}" = 1 ] && echo true || echo false) \
+        -p wait_mission:=$([ ${LLM} = 1 ] || [ -n "${LEGS}" ] && echo true || echo false) \
+        -p require_go:=$([ "${NOCLIMB_REQUIRE_GO:-0}" = 1 ] || [ ${LLM} = 1 ] && echo true || echo false) \
         -p ekf_settle_s:=$(printf '%.1f' ${NOCLIMB_EKF_SETTLE:-$([ ${LIVOX} = 1 ] && echo 30 || echo 5)}) \
         -p speed_limit_mps:=$(printf '%.2f' ${NOCLIMB_SPEED_LIMIT:-$(python3 -c "print(${V_MAX} + 2.5)")}) \
         -p log_dir:=${LOGS} 2>&1 | tee ${LOGS}/flight_driver.log &

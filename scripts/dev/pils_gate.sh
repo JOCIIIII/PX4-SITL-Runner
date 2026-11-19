@@ -19,6 +19,7 @@ P=$REPO/scripts/dev/flight_profiles/$PROFILE.env
 # the profile's knobs; a value already set by the caller wins
 while IFS='=' read -r k v; do
     [[ "$k" =~ ^[A-Z_][A-Z0-9_]*$ ]] || continue
+    [[ "$k" == VEHICLE_* ]] && continue      # the real vehicle's values (onboard_real.sh); the simulation keeps the plain ones
     [ -n "${!k+x}" ] && { echo "[pils_gate] $k=${!k} (profile: ${v%%#*})"; continue; }
     v=$(echo "${v%%#*}" | sed -E 's/[[:space:]]+$//; s/^"(.*)"$/\1/')
     export "$k=$v"

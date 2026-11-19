@@ -1,0 +1,50 @@
+# X8 (A4VAI, 2026-10-31): = bridge_x500_mid360.yaml (x500_mid360.yaml) with the X8's Mid-360 mount.
+# Mount MEASURED 2026-11-03 with PX4-SITL-Runner scripts/dev/lidar_mount_calib.py, after the X500's Mid-360
+# (192.168.1.100) was moved onto the X8: target (a person on the nose axis) -> yaw 0 (the lidar's +X, away from its
+# connector, looks forward - NOT the X500's 180), rest --yaw 0 -> roll / pitch, lidar 0.653 m above the ground with the
+# vehicle centre (Pixhawk) 0.55 m up -> z 0.103. Same numbers as the x8 flight profiles (NOCLIMB_LIDAR_*,
+# VEHICLE_NOCLIMB_LIDAR_Z). The 11-01 values [-1.6, -4.4, 180] / z 0.05 (the X8's own unit, yaw assumed 180) are void.
+# Re-measure when the lidar or its bracket changes.
+# lio_px4_bridge on the real X500: Mid-360 mounted as in PX4-SITL-Runner scripts/dev/flight_profiles/x500_*.env
+# send_to_px4 is deliberately not set here: the only switch is the launch argument (slam.launch.py send_to_px4:=true)
+# or -p send_to_px4:=true, and the node default is false (shadow).
+/**:
+  ros__parameters:
+    px4_ns: ""
+    odom_topic: /Odometry
+    health_topic: /fast_lio/health
+    imu_topic: /livox/imu                     # clock reference: the lidar's own IMU stream
+    lidar_rpy_deg: [-0.07, -2.28, 0.0]        # MEASURED 2026-11-03 (lidar_mount_calib.py target + rest --yaw 0, vs the FC);
+                                              # R = Rz(yaw) Ry(pitch) Rx(roll), lidar -> FLU body; the X500's is [-1.6, -3.0, 180]
+    lidar_xyz: [0.0, 0.0, 0.103]              # NOCLIMB_LIDAR_X / _Y / _Z (FLU, m): 0.653 m lidar - 0.55 m centre
+    imu_R_lidar: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]   # = fast_lio mapping.extrinsic_R
+    imu_p_lidar: [-0.011, -0.02329, 0.04412]                     # = fast_lio mapping.extrinsic_T
+    heading_mode: px4                         # px4 | fixed (heading_deg) | initial (FRD frame, nose = x)
+    heading_deg: 0.0
+    align_to_px4_position: true
+    rest_window_s: 2.0
+    rest_gyro_max: 0.3                        # rad/s, coarse: armed props shake the IMU (0.05-0.07 on the ground)
+    rest_speed_max: 0.2                       # m/s
+    rest_spread_m: 0.05                       # rest = FAST-LIO and PX4 stay within these over the window
+    rest_spread_deg: 0.5
+    stamp_mode: auto
+    pos_std: 0.10
+    vel_std: 0.20
+    att_std_deg: 3.0
+    send_velocity: true
+    health_required: true
+    eff_min: 100.0
+    eff_good: 500.0
+    residual_max: 0.2
+    max_speed: 15.0
+    lost_after_s: 1.0
+    degraded_latch_s: 1.0                     # 2026-10-31 f2_slam divergence: unusable > 1 s -> wait for a FAST-LIO restart
+    restart_radius_m: 0.5
+    # holes in FAST-LIO's output (2026-10-31 jetson2: 3.2-3.5 s gaps, longer ones on h1/bench6; the bridge used to drop the
+    # alignment at 1 s and wait for a rest -> PX4 lost its only aiding, local_position_invalid, 56 s outage in flight)
+    hole_max_s: 8.0                           # a silence up to this is a hole: alignment kept when the output resumes
+    coast_max_s: 4.0                          # meanwhile the last pose (+ velocity) is sent on, covariance growing (0 = off)
+    coast_after_s: 0.3
+    coast_pos_growth: 0.5                     # position std grows this much per second coasted [m/s]
+    coast_vel_std: 0.5
+    intake_reliable: true                     # /Odometry and /fast_lio/health reliable + deep (best effort lost bursts)

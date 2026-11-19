@@ -7,9 +7,11 @@
 #                                                         Leave it up: PX4 1.16 does not reconnect to a restarted
 #                                                         agent (reboot the flight controller after a restart)
 #   scripts/dev/onboard_real.sh agent stop | status
-#   scripts/dev/onboard_real.sh shadow NAME   the chain on the carried vehicle (props off, outdoors with GPS): the
-#                                             policy runs on the real lidar and PX4 pose, its commands go to
-#                                             /shadow/... only. Watch /cloud, /noclimb/path in Foxglove
+#   scripts/dev/onboard_real.sh shadow NAME [PROFILE]   the chain on the carried vehicle (props off, outdoors with
+#                                             GPS): the policy runs on the real lidar and PX4 pose, its commands go to
+#                                             /shadow/... only (no PathFollowing, no flight driver). PROFILE (e.g. x8_3n):
+#                                             its policy, lidar mount and knobs exactly as fly loads them - without it
+#                                             only the caller's NOCLIMB_* and the x500 defaults (lidar yaw 180!). Watch /cloud, /noclimb/path in Foxglove
 #                                             (ws://<this computer>:8765). New run (nose at the course first):
 #                                             docker exec ros2-real bash -c "source /opt/ros/humble/setup.bash;
 #                                             ros2 topic pub --once /shadow/reset std_msgs/msg/Bool '{data: true}'"
@@ -39,8 +41,9 @@
 # (mission reach + 20 m, height + 10 m) or over speed.
 # env: ONBOARD_DOMAIN (ROS_DOMAIN_ID = PX4's UXRCE_DDS_DOM_ID, default 0 as the vehicle is set now; the lab LAN
 #      has other ROS2 hosts on 0 - set both to 37), ONBOARD_WS (default ~/Documents/A4VAI-SITL/ROS2),
+#      ONBOARD_RECORDER=1 (the flight_recorder: lidar / odom / px4 CSVs + cloud map; off by default since 11-01, 0.6 core),
 #      ONBOARD_NO_LIDAR=1 (mission without the Mid-360 driver), LIVOX_LIDAR_IP (the lidar's address, default
-#      192.168.1.100 = the X500's; the x8 profiles set the X8's 192.168.1.182 - for calib / shadow export it); shadow: SHADOW_AIRFRAME (x500 default | x8),
+#      192.168.1.100; the profiles set their vehicle's - since 11-03 the X500's unit 192.168.1.100 is on the X8 too; for calib / shadow export it); shadow: SHADOW_AIRFRAME (x500 default | x8),
 #      NOCLIMB_POLICY_DIR / NOCLIMB_POLICY (default
 #      x500_speed_onnx/v1 / ca_x500_v1), NOCLIMB_SHADOW_AHEAD / NOCLIMB_SHADOW_MASK and the other NOCLIMB_* knobs
 set -u
@@ -68,8 +71,15 @@ start_app() {
         -e LIVOX_LIDAR_IP=${LIVOX_LIDAR_IP:-192.168.1.100} "$@" \
         -v "$WS":$CW -w /home/user/workspace --entrypoint bash "$IMAGE" $CW/scripts/onboard-real.sh > /dev/null \
         || { echo "[onboard_real] docker run failed"; exit 1; }
-    docker exec -d $C bash -c "source /opt/ros/humble/setup.bash; source $CW/ros2_ws/install/setup.bash; \
-        python3 $CW/scripts/tools/flight_recorder.py $CW/test_runs/$NAME > $CW/test_runs/$NAME/recorder.log 2>&1"
+    # ONBOARD_RECORDER=1: the flight_recorder (lidar.csv, odom.csv, px4.csv, cloud_map.npz). Off by default since
+    # 2026-11-01: it took 0.6 of a core on the Jetson (top.log of the 10-31 / 11-01 PILS flights); the PX4 log and the
+    # nodes' own CSVs (noclimb_ca.csv, flight_driver.csv, pf_log.csv) are what the analysis tools read
+    if [ "${ONBOARD_RECORDER:-0}" = 1 ]; then
+        docker exec -d $C bash -c "source /opt/ros/humble/setup.bash; source $CW/ros2_ws/install/setup.bash; \
+            python3 $CW/scripts/tools/flight_recorder.py $CW/test_runs/$NAME > $CW/test_runs/$NAME/recorder.log 2>&1"
+    else
+        echo "flight_recorder off (ONBOARD_RECORDER=1 turns it on)" > "$R/recorder.log"
+    fi
     rm -f "$R/.load_pids"
     if command -v tegrastats > /dev/null; then
         nohup tegrastats --interval 1000 --logfile "$R/tegrastats.log" > /dev/null 2>&1 & echo $! >> "$R/.load_pids"
@@ -78,15 +88,24 @@ start_app() {
 }
 
 # the profile's knobs (NOCLIMB_*, PROFILE_AIRFRAME) into this shell; a value already set by the caller wins
-# (e.g. NOCLIMB_HOVER_THRUST=0.68 NOCLIMB_LIDAR_YAW_DEG=178 measured in the morning)
+# (e.g. NOCLIMB_HOVER_THRUST=0.68 NOCLIMB_LIDAR_YAW_DEG=178 measured in the morning). VEHICLE_<KEY> lines are the
+# vehicle's own value of <KEY> and win over the plain <KEY> line, which stays for SILS / PILS (pils_gate.sh ignores
+# VEHICLE_ lines): the simulated lidar sits elsewhere than the real one (x8: 0.30 m above a 0.44 m centre in the sim).
 load_profile() {
-    local P=$REPO/scripts/dev/flight_profiles/$1.env k v
+    local P=$REPO/scripts/dev/flight_profiles/$1.env k v vehicle
+    local -A mine=()                    # keys this profile set: p = plain line, v = VEHICLE_ line
     [ -f "$P" ] || { echo "[onboard_real] no profile $P ($(ls $REPO/scripts/dev/flight_profiles/*.env | xargs -n1 basename | tr '\n' ' '))"; exit 1; }
     while IFS='=' read -r k v; do
         [[ "$k" =~ ^[A-Z_][A-Z0-9_]*$ ]] || continue
-        [ -n "${!k+x}" ] && { echo "[onboard_real] $k=${!k} (profile: ${v%%#*})"; continue; }
+        vehicle=0
+        [[ "$k" == VEHICLE_* ]] && { k=${k#VEHICLE_}; vehicle=1; }
+        if [ -n "${!k+x}" ] && [ -z "${mine[$k]:-}" ]; then
+            echo "[onboard_real] $k=${!k} (profile: ${v%%#*})"; continue
+        fi
+        [ $vehicle = 0 ] && [ "${mine[$k]:-}" = v ] && continue      # the vehicle's line already set it
         v=$(echo "${v%%#*}" | sed -E 's/[[:space:]]+$//; s/^"(.*)"$/\1/')
         export "$k=$v"
+        mine[$k]=$([ $vehicle = 1 ] && echo v || echo p)
     done < "$P"
 }
 
@@ -103,7 +122,7 @@ agent)
         # --ipc host (both containers): Fast DDS talks over shared memory between processes on one host, and
         # each container has its own /dev/shm - without it the apps never see the agent's /fmu topics
         # UDP only (scripts/dev/fastdds_udp_only.xml): the agent's own Fast DDS did not meet the Humble apps over
-        # shared memory on orin-nano-02
+        # shared memory on the Jetson
         docker run -d --restart unless-stopped --name $A --network host --ipc host --privileged -v /dev:/dev \
             -v "$REPO/scripts/dev/fastdds_udp_only.xml":/fastdds_udp_only.xml:ro -e FASTRTPS_DEFAULT_PROFILES_FILE=/fastdds_udp_only.xml \
             --entrypoint MicroXRCEAgent "$IMAGE" serial --dev "$DEV" -b "$BAUD" > /dev/null \
@@ -115,7 +134,8 @@ agent)
         docker ps -a --filter name=^/$A$ --format '{{.Names}} {{.Status}}'; docker logs --tail 5 $A 2>&1 ;;
     esac ;;
 shadow)
-    NAME=${2:?usage: onboard_real.sh shadow NAME}
+    NAME=${2:?usage: onboard_real.sh shadow NAME [PROFILE]}
+    if [ -n "${3:-}" ]; then load_profile "$3"; SHADOW_AIRFRAME=${SHADOW_AIRFRAME:-$PROFILE_AIRFRAME}; fi
     ENV=(-e ROS2_APP=noclimb_ca -e SITL_AIRFRAME=${SHADOW_AIRFRAME:-x500} -e NOCLIMB_SHADOW=1
          -e NOCLIMB_POLICY_DIR=${NOCLIMB_POLICY_DIR:-x500_speed_onnx/v1} -e NOCLIMB_POLICY=${NOCLIMB_POLICY:-ca_x500_v1})
     for k in $(compgen -e | grep -E '^NOCLIMB_' | grep -vE '^NOCLIMB_(POLICY_DIR|POLICY|SHADOW)$'); do
@@ -188,10 +208,12 @@ stop)
     NAME=${2:?usage: onboard_real.sh stop NAME}
     R=$WS/test_runs/$NAME
     [ -f "$R/.load_pids" ] && { kill $(cat "$R/.load_pids") 2>/dev/null; rm -f "$R/.load_pids"; }
-    docker exec $C pkill -INT -f flight_recorder.py 2>/dev/null
-    # the recorder writes cloud_map.npz on SIGINT; a long run takes over 30 s, and removing the container while it
-    # writes leaves an empty file (shadow_x8_fly5, 10-17) - wait until the recorder has exited (up to 3 min)
-    for i in $(seq 1 180); do docker exec $C pgrep -f flight_recorder.py > /dev/null 2>&1 || break; sleep 1; done
+    if docker exec $C pgrep -f flight_recorder.py > /dev/null 2>&1; then
+        docker exec $C pkill -INT -f flight_recorder.py 2>/dev/null
+        # the recorder writes cloud_map.npz on SIGINT; a long run takes over 30 s, and removing the container while it
+        # writes leaves an empty file (shadow_x8_fly5, 10-17) - wait until the recorder has exited (up to 3 min)
+        for i in $(seq 1 180); do docker exec $C pgrep -f flight_recorder.py > /dev/null 2>&1 || break; sleep 1; done
+    fi
     docker exec $C bash -c "cp $CW/logs/*.log $CW/logs/noclimb_ca.csv $CW/logs/noclimb_ca_dump.npz $CW/logs/t1000_pf.csv $CW/test_runs/$NAME/ 2>/dev/null; \
         f=\$(ls -t $CW/logs/flight_driver_*.csv 2>/dev/null | head -1); [ -n \"\$f\" ] && cp \"\$f\" $CW/test_runs/$NAME/flight_driver.csv; \
         f=\$(ls -t $CW/logs/[0-9]*.csv 2>/dev/null | head -1); [ -n \"\$f\" ] && cp \"\$f\" $CW/test_runs/$NAME/pf_log.csv; \

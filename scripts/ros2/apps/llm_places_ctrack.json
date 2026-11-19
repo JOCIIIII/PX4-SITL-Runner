@@ -1,0 +1,131 @@
+{
+  "_doc": "Places the mission LLM may choose (C-Track field, A4VAI-Unreal layout/ctrack_layout.json X,Y [m]). The LLM only picks names from this table; llm_mission_node.py turns them into metres from the take-off point. '출발점' is always the take-off point. 'areas': search areas (polygons, same frame) for task=search.",
+  "map": "CTrack",
+  "places": {
+    "출발점": {
+      "take_off": true,
+      "desc": "이륙한 곳"
+    },
+    "골": {
+      "xy": [
+        0.0,
+        26.0
+      ],
+      "desc": "GOAL, 장애물 길(기둥 6개, RC카트, 나무 벽) 끝"
+    },
+    "시작점": {
+      "xy": [
+        0.0,
+        0.0
+      ],
+      "desc": "START, 장애물 길 반대편 모서리"
+    },
+    "1번 지점": {
+      "xy": [
+        60.0,
+        0.0
+      ],
+      "desc": "WP1"
+    },
+    "2번 지점": {
+      "xy": [
+        79.0,
+        0.0
+      ],
+      "desc": "WP2, 3번 지점 맞은편 모서리"
+    },
+    "3번 지점": {
+      "xy": [
+        79.0,
+        26.0
+      ],
+      "desc": "WP3, 장애물 길 시작 (보통 이륙 지점)"
+    },
+    "4번 지점": {
+      "xy": [
+        62.0,
+        26.0
+      ],
+      "desc": "WP4, 첫 기둥(C1) 지난 곳"
+    },
+    "5번 지점": {
+      "xy": [
+        42.0,
+        26.0
+      ],
+      "desc": "WP5, 기둥 세 줄 지나 RC카트 길 바로 앞"
+    },
+    "6번 지점": {
+      "xy": [
+        26.0,
+        23.0
+      ],
+      "desc": "WP6, 나무 벽 지난 곳"
+    }
+  },
+  "areas": {
+    "시험장 전체": {
+      "polygon": [
+        [
+          2.0,
+          -6.0
+        ],
+        [
+          88.0,
+          -6.0
+        ],
+        [
+          88.0,
+          34.0
+        ],
+        [
+          2.0,
+          34.0
+        ]
+      ],
+      "desc": "C-Track 시험장 전체"
+    },
+    "장애물 길": {
+      "polygon": [
+        [
+          2.0,
+          18.0
+        ],
+        [
+          88.0,
+          18.0
+        ],
+        [
+          88.0,
+          34.0
+        ],
+        [
+          2.0,
+          34.0
+        ]
+      ],
+      "desc": "기둥·RC카트·나무 벽이 있는 길 (3번 지점 ~ 골)"
+    },
+    "텐트 쪽": {
+      "polygon": [
+        [
+          2.0,
+          -6.0
+        ],
+        [
+          88.0,
+          -6.0
+        ],
+        [
+          88.0,
+          12.0
+        ],
+        [
+          2.0,
+          12.0
+        ]
+      ],
+      "desc": "텐트 두 개가 있는 쪽 (시작점 ~ 2번 지점)"
+    }
+  }
+}

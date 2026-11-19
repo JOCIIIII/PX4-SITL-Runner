@@ -11,14 +11,14 @@
 #   scripts/dev/pils_onboard.sh --stop NAME   stop the recorder, collect the logs, remove the container
 #
 # env:
-#   AIRSIM_IP        the simulator PC (LAN 192.168.219.177 or Tailscale 100.64.0.119; 127.0.0.1 = loopback test on the PC)
+#   AIRSIM_IP        the simulator PC (its LAN or Tailscale address; 127.0.0.1 = loopback test on the PC)
 #   ROS_DOMAIN_ID    must match the PC's ctrack-sitl (PX4 uses it as its DDS domain; default 0)
 #   ONBOARD_WS       host dir mounted at /home/user/workspace/ros2: ros2_ws built ON THIS MACHINE (colcon keeps
 #                    absolute paths, so it must have been built at that same container path), scripts/, logs/
 #                    (default ~/Documents/A4VAI-SITL/ROS2)
 #   ONBOARD_IMAGE    ROS2 image for this machine (default: jociiiii/a4vai:inhousesim-v0.9 on x86,
 #                    a4vai-pils:humble on aarch64 - made, with the aarch64 builds, by scripts/dev/pils_jetson_setup.sh)
-#   ROS2_APP, SITL_AIRFRAME, SIM_LIDAR, NOCLIMB_*, SUPER_PF_*, T1000_*  the app and its knobs, as in SILS;
+#   ROS2_APP, SITL_AIRFRAME, SIM_LIDAR, NOCLIMB_*, SUPER_PF_*, T1000_*, LLM_*  the app and its knobs, as in SILS;
 #   NOCLIMB_GOAL "x,y" / NOCLIMB_ALT give the goal (PX4 local ENU, metres) - the PC does not write the
 #   goal file here
 set -u
@@ -37,6 +37,7 @@ if [ $STOP = 1 ]; then
     for i in $(seq 1 30); do [ -f "$WS/test_runs/$NAME/cloud_map.npz" ] && break; sleep 1; done
     docker exec $C bash -c "cp /home/user/workspace/ros2/logs/*.log /home/user/workspace/ros2/logs/*.pkl $CMNT/ 2>/dev/null; \
         cp /home/user/workspace/ros2/logs/noclimb_ca.csv /home/user/workspace/ros2/logs/noclimb_ca_dump.npz $CMNT/ 2>/dev/null; \
+        mv /home/user/workspace/ros2/logs/photo_*.png /home/user/workspace/ros2/logs/llm_mission.jsonl /home/user/workspace/ros2/logs/person_search.jsonl /home/user/workspace/ros2/logs/search_results.json /home/user/workspace/ros2/logs/search $CMNT/ 2>/dev/null; \
         f=\$(ls -t /home/user/workspace/ros2/logs/[0-9]*.csv 2>/dev/null | head -1); [ -n \"\$f\" ] && cp \"\$f\" $CMNT/pf_log.csv; \
         f=\$(ls -t /home/user/workspace/ros2/logs/flight_driver_*.csv 2>/dev/null | head -1); [ -n \"\$f\" ] && cp \"\$f\" $CMNT/flight_driver.csv; \
         chmod -R a+rw $CMNT"
@@ -53,7 +54,7 @@ REPO=$(dirname $(dirname $(dirname $(readlink -f "$0"))))
 cp -r "$REPO"/scripts/ros2/* "$WS/scripts/" && cp -r "$REPO"/scripts/include/* "$WS/scripts/include/"
 ENV=(-e ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-0}" -e AIRSIM_IP="$AIRSIM_IP" -e PX4_IP=127.0.0.1 -e ROS2_APP="$ROS2_APP"
      -e SITL_AIRFRAME="${SITL_AIRFRAME:-x500}")
-for k in $(compgen -e | grep -E '^(NOCLIMB_|SUPER_PF_|T1000_|SIM_LIDAR$|PILS_LINK$|PILS_RELAY_PORT$)'); do ENV+=(-e "$k=${!k}"); done
+for k in $(compgen -e | grep -E '^(NOCLIMB_|SUPER_PF_|T1000_|LLM_|SIM_LIDAR$|PILS_LINK$|PILS_RELAY_PORT$)'); do ENV+=(-e "$k=${!k}"); done
 # onnxruntime-gpu needs the GPU: --gpus on a PC, the NVIDIA runtime on a Jetson (L4T)
 GPU=()
 if docker info 2>/dev/null | grep -qi nvidia; then
@@ -67,8 +68,14 @@ T0=$(date +%s)
 until docker exec $C test -f /home/user/workspace/ros2/ros2_ws/install/setup.bash 2>/dev/null; do
     sleep 2; [ $(( $(date +%s) - T0 )) -gt 120 ] && { echo "[pils_onboard] container did not come up"; exit 1; }
 done
-docker exec -d $C bash -c "source /opt/ros/humble/setup.bash; source /home/user/workspace/ros2/ros2_ws/install/setup.bash; \
-    python3 /home/user/workspace/ros2/scripts/tools/flight_recorder.py $CMNT > $CMNT/recorder.log 2>&1"
+# ONBOARD_RECORDER=1: the flight_recorder (lidar / odom / px4 CSVs, cloud map). Off by default since 2026-11-01, like
+# the vehicle (onboard_real.sh): 0.6 of a Jetson core, and the analysis reads the PX4 log and the nodes' own CSVs
+if [ "${ONBOARD_RECORDER:-0}" = 1 ]; then
+    docker exec -d $C bash -c "source /opt/ros/humble/setup.bash; source /home/user/workspace/ros2/ros2_ws/install/setup.bash; \
+        python3 /home/user/workspace/ros2/scripts/tools/flight_recorder.py $CMNT > $CMNT/recorder.log 2>&1"
+else
+    echo "flight_recorder off (ONBOARD_RECORDER=1 turns it on)" > "$R/recorder.log"
+fi
 # the onboard computer's load over the run (does it keep up?): tegrastats on a Jetson, top on any host
 rm -f "$R/.load_pids"
 if command -v tegrastats > /dev/null; then

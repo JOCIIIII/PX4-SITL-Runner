@@ -12,6 +12,8 @@ lateral acceleration <= ~4 m/s^2, accel / brake ~2 m/s^2).
              the field
     --alt    height above the take-off point [m] (default 5)
     --size   line length / square side / circle radius / spiral outer radius [m] (default by speed)
+    --corner square: radius [m] of its three corners away from the take-off point (default: the circle radius of
+             that speed, so they are flown at the cruise speed; 0 = sharp 90 deg corners, flown at ~4.5 m/s)
     --laps   circle laps / spiral turns (default 2)
     --turn   right (clockwise seen from above, default) | left
     --ref    the take-off point's LAT,LON: write wp_gps rows "lat,lon,alt" instead of local "north,east,height"
@@ -21,7 +23,9 @@ lateral acceleration <= ~4 m/s^2, accel / brake ~2 m/s^2).
 Every path starts at the take-off point (flight_driver flies there after the take-off) and the line ends
 --size away from it, the others back at it. Lines: accelerate, ~4 s at speed, brake (PathFollowing slows down
 for the last waypoint). Circles / spirals: polylines at <= 5 deg per vertex (PathFollowing's corner limit
-ignores turns under 10 deg, so a circle is flown at the cruise speed).
+ignores turns under 10 deg, so a circle is flown at the cruise speed). Squares: the corners away from the
+take-off point are quarter circles of --corner radius at <= 5 deg per vertex; the one at the take-off point stays
+sharp (the path starts and ends there).
 """
 import argparse
 import math
@@ -57,13 +61,34 @@ def default_size(shape, v):
     raise ValueError(shape)
 
 
-def shape_points(shape, size, laps, turn, spiral_inner=None):
+def default_corner(v, size):
+    """the square's corner radius: the circle radius of that speed (flown at the cruise speed), <= size / 2"""
+    return min(default_size('circle', v), size / 2.0)
+
+
+def shape_points(shape, size, laps, turn, spiral_inner=None, corner=None):
     """local (forward, right) points of the shape, starting at (0, 0), forward = --heading"""
     s = 1.0 if turn == 'right' else -1.0
     if shape == 'line':
         return [(0.0, 0.0), (size, 0.0)]
     if shape == 'square':
-        return [(0.0, 0.0), (size, 0.0), (size, s * size), (0.0, s * size), (0.0, 0.0)]
+        corners = [(0.0, 0.0), (size, 0.0), (size, s * size), (0.0, s * size), (0.0, 0.0)]
+        R = min(max(corner or 0.0, 0.0), size / 2.0)
+        if R <= 0.0:
+            return corners
+        pts = [corners[0]]
+        for i in (1, 2, 3):                # the three corners away from the take-off point
+            (px, py), (cx, cy), (nx, ny) = corners[i - 1], corners[i], corners[i + 1]
+            din = ((cx - px) / size, (cy - py) / size)
+            dout = ((nx - cx) / size, (ny - cy) / size)
+            ox, oy = cx - R * din[0] + R * dout[0], cy - R * din[1] + R * dout[1]      # the arc's centre
+            a1 = math.atan2(cy - R * din[1] - oy, cx - R * din[0] - ox)
+            a2 = math.atan2(cy + R * dout[1] - oy, cx + R * dout[0] - ox)
+            da = math.remainder(a2 - a1, 2.0 * math.pi)                                 # +-90 deg
+            n = 18                                                                      # 5 deg per vertex
+            pts += [(ox + R * math.cos(a1 + da * k / n), oy + R * math.sin(a1 + da * k / n)) for k in range(n + 1)]
+        pts.append(corners[4])
+        return pts
     if shape == 'circle':
         # centre straight ahead at `size`; the take-off point is on the circle (bearing pi from the centre);
         # theta = bearing about the centre, clockwise seen from above = increasing (right turn)
@@ -96,14 +121,16 @@ def length(ne):
 
 
 def table():
-    print('speed  line L   square side   circle R (diam)   spiral R in->out   | est. time line/square/circle x2/spiral x2 [s]')
+    print('speed  line L   square side (corner R)   circle R (diam)   spiral R in->out   '
+          '| est. time line/square/circle x2/spiral x2 [s]')
     for v in SPEEDS:
         L, S, C, P = (default_size(s, v) for s in ('line', 'square', 'circle', 'spiral'))
-        lens = [length(shape_points(s, z, 1 if s in ('line', 'square') else 2, 'right', None))
+        K = default_corner(v, S)
+        lens = [length(shape_points(s, z, 1 if s in ('line', 'square') else 2, 'right', None, K))
                 for s, z in (('line', L), ('square', S), ('circle', C), ('spiral', P))]
         t = [x / v + 2.0 * v / 2.0 for x in lens]
-        print(f'{v:4d}   {L:5.0f} m   {S:6.0f} m      {C:4.0f} m ({2 * C:3.0f} m)     {max(3.0, P - 8):3.0f} -> {P:3.0f} m'
-              f'        | {t[0]:4.0f} / {t[1]:4.0f} / {t[2]:4.0f} / {t[3]:4.0f}')
+        print(f'{v:4d}   {L:5.0f} m   {S:6.0f} m ({K:4.1f} m)       {C:4.0f} m ({2 * C:3.0f} m)     '
+              f'{max(3.0, P - 8):3.0f} -> {P:3.0f} m        | {t[0]:4.0f} / {t[1]:4.0f} / {t[2]:4.0f} / {t[3]:4.0f}')
 
 
 def main():
@@ -117,6 +144,7 @@ def main():
     ap.add_argument('--alt', type=float, default=5.0)
     ap.add_argument('--size', type=float, default=None)
     ap.add_argument('--laps', type=float, default=None)
+    ap.add_argument('--corner', type=float, default=None)
     ap.add_argument('--turn', choices=('right', 'left'), default='right')
     ap.add_argument('--ref', default=None)
     ap.add_argument('--out', default=None)
@@ -126,7 +154,10 @@ def main():
     inner = None
     if a.shape == 'spiral':
         inner = max(3.0, default_size('circle', a.speed)) if not a.size else max(3.0, size - 8.0)
-    ne = to_ne(shape_points(a.shape, size, laps, a.turn, inner), a.heading)
+    corner = None
+    if a.shape == 'square':
+        corner = min(max(a.corner, 0.0), size / 2.0) if a.corner is not None else default_corner(a.speed, size)
+    ne = to_ne(shape_points(a.shape, size, laps, a.turn, inner, corner), a.heading)
     rows = []
     if a.ref:
         lat0, lon0 = (float(x) for x in a.ref.split(','))
@@ -136,9 +167,11 @@ def main():
         rows = [f'{n:.2f}, {e:.2f}, {a.alt:.1f}' for n, e in ne]
         head = 'x,y,z\n# north, east, height above the take-off point [m]'
     text = head + f'\n# pf_shapes.py {a.shape} {a.speed:g} m/s, size {size:g} m, heading {a.heading:g} deg, ' \
-                  f'{a.turn}, laps {laps:g}\n' + '\n'.join(rows) + '\n'
+                  f'{a.turn}, laps {laps:g}' + (f', corner radius {corner:g} m' if corner is not None else '') + \
+        '\n' + '\n'.join(rows) + '\n'
     ns, es = [p[0] for p in ne], [p[1] for p in ne]
-    info = (f'{a.shape} {a.speed:g} m/s: size {size:g} m, {len(ne)} waypoints, path {length(ne):.0f} m, '
+    info = (f'{a.shape} {a.speed:g} m/s: size {size:g} m' + (f' (corners R {corner:g} m)' if corner is not None else '') +
+            f', {len(ne)} waypoints, path {length(ne):.0f} m, '
             f'extent N {min(ns):+.0f}..{max(ns):+.0f} E {min(es):+.0f}..{max(es):+.0f} m from the take-off point, '
             f'farthest {max(math.hypot(n, e) for n, e in ne):.0f} m')
     if a.out:

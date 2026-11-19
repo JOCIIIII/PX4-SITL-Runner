@@ -143,6 +143,28 @@ class NoClimbCA(Node):
         # last segment with pursuit, not MPPI (see the ext/ext2 note in tick), so a corner before the goal means a
         # mid-air controller switch, and a line that does not match the velocity at the switch rolls the vehicle
         # (C-Track 10-22: 12 deg roll swings from a 10 m rejoin leg and a 21 deg misaligned start).
+        # prefix_path (final demonstration scenario D): before the policy, PathFollowing alone flies this planned
+        # path (Hybrid PP around the pre-known obstacles; "e,n;e,n;..." metres from the take-off point, ENU) at
+        # prefix_speed with no avoidance (mode PREFIX), the speed eased before each corner (corner lateral
+        # acceleration prefix_corner_accel, path error prefix_corner_err_m, braking prefix_brake_accel). The policy
+        # takes over when the flight driver hands out its next leg (the prefix ends on the first leg, a pass-through
+        # point), or at the prefix end. The path to PF runs 2 points past the end so its last segment (pursuit, not
+        # MPPI - see the ext note in tick) is not flown before the hand-over.
+        self.prefix = None
+        pp = str(p('prefix_path', '')).strip()
+        if pp:
+            self.prefix = np.array([[float(v) for v in q.split(',')] for q in pp.split(';') if q.strip()], dtype=float)
+        self.prefix_speed = float(p('prefix_speed', 7.0))
+        self.prefix_corner_a = float(p('prefix_corner_accel', 4.0))
+        self.prefix_corner_e = float(p('prefix_corner_err_m', 1.5))
+        self.prefix_brake = float(p('prefix_brake_accel', 3.0))
+        self.prefix_end_r = float(p('prefix_end_m', 3.0))
+        # the speed at the prefix end (< 0: the policy's v_max): the next leg may turn sharply there (scenario D:
+        # south along WP2 -> WP3, then west), and the policy takes over from whatever speed the vehicle has
+        self.prefix_end_speed = float(p('prefix_end_speed', -1.0))
+        self.prefix_done = False
+        self.prefix_abs = None          # the prefix in PX4 local ENU (+ the take-off point), set when it starts
+        self.prefix_steps = 0
         self.pf_direct = bool(p('pf_direct', False))
         self.pfd_w = float(p('pf_direct_corridor_m', 1.8))
         self.pfd_on = float(p('pf_direct_on_m', 25.0))
@@ -345,7 +367,8 @@ class NoClimbCA(Node):
         self.safe_cut = 0.0
         self.t_armed = None
         self.disarmed_after_flight = False
-        self.mode = 'WAIT'          # WAIT -> CA (<-> PFDIRECT with pf_direct) -> FINAL
+        self.mode = 'WAIT'          # WAIT -> CA (<-> PFDIRECT with pf_direct) -> FINAL (-> CA: the driver's next leg)
+        self.reengage = False
         self.final_path = None
         self.last_speed = 0.0
 
@@ -369,6 +392,10 @@ class NoClimbCA(Node):
         self.done_pub = self.create_publisher(Bool, pre + '/path_following_complete', 10)
         if self.goal_topic:
             self.create_subscription(PointStamped, self.goal_topic, self.goal_cb, 10)
+        self.speed_cap = 0.0                      # > 0: a cap on the commanded speed (Float32 on /noclimb/speed_cap)
+        self.create_subscription(Float32, '/noclimb/speed_cap', self.speed_cap_cb, 10)
+        self.paused = False                       # flight_driver holds the vehicle (/flight_driver/pause)
+        self.create_subscription(Bool, '/flight_driver/pause', lambda m: setattr(self, 'paused', bool(m.data)), 10)
         # /noclimb/ready (1 Hz): pose, lidar driver and registered returns all live - flight_driver arms only on it
         self.ready_pub = self.create_publisher(Bool, '/noclimb/ready', 10)
         self.create_timer(1.0, self.ready)
@@ -464,6 +491,7 @@ class NoClimbCA(Node):
         now = self.now()
         if armed and self.t_armed is None:
             self.t_armed = now
+            self.home = None if self.pos is None else self.pos[:2].copy()   # the take-off point (prefix_path frame)
             self.get_logger().info('[noclimb_ca] armed - CA engages after the take-off/hover phases')
         elif not armed and self.mode != 'WAIT' and not self.disarmed_after_flight and not self.shadow:
             # (shadow: never armed - a disarmed vehicle is the normal state, not the end of a flight)
@@ -471,9 +499,24 @@ class NoClimbCA(Node):
             self.get_logger().info('[noclimb_ca] disarmed - stopping')
             self.write_dump()
 
+    def speed_cap_cb(self, m):
+        cap = float(m.data)
+        if abs(cap - self.speed_cap) > 1e-3:
+            self.get_logger().info(f'[noclimb_ca] speed cap {cap:.2f} m/s' if cap > 0 else '[noclimb_ca] speed cap off')
+        self.speed_cap = cap
+
     def goal_cb(self, m):
-        """the flight driver's goal (goal_topic): sets the goal and the height reference until engaged"""
+        """the flight driver's goal (goal_topic): sets the goal and the height reference until engaged; a different
+        goal after that (the driver's next mission leg) re-engages the policy from where the vehicle is"""
         if self.mode != 'WAIT':
+            g = np.array([float(m.point.x), float(m.point.y)])
+            if self.mode in ('CA', 'PFDIRECT', 'FINAL', 'PREFIX') and float(np.linalg.norm(g - self.goal)) > 1.0:
+                if self.mode == 'PREFIX':       # the driver passed the prefix's end leg: the policy takes over
+                    self.prefix_done = True
+                    self.get_logger().info(f'[noclimb_ca] prefix done (the flight driver passed its end) - the '
+                                           f'policy flies on to ({g[0]:.1f}, {g[1]:.1f})')
+                self.goal = g
+                self.reengage = True            # tick() restarts the policy on its next step
             return
         z0 = float(m.point.z) - self.alt_param           # the vehicle's rest height: the driver's take-off point
         self.goal = np.array([float(m.point.x), float(m.point.y)])
@@ -526,6 +569,8 @@ class NoClimbCA(Node):
         self.get_logger().info('[noclimb_ca] shadow: reset - engaging again, goal ahead of the nose')
 
     def publish_speed(self, v):
+        if self.speed_cap > 0.0:                  # the mission's speed (llm_mission_node: /noclimb/speed_cap)
+            v = min(float(v), self.speed_cap)
         self.last_speed = float(v)
         m = Float32()
         m.data = float(v)
@@ -555,6 +600,18 @@ class NoClimbCA(Node):
         if self.disarmed_after_flight or self.pos is None:
             return
         t = self.now()
+        if self.reengage:
+            self.reengage = False
+            start = self.pos[:2].copy()
+            self.pol.reset([start.tolist(), self.goal.tolist()], [self.alt + self.agl_off] * 2)
+            self.wp_z = float(self.pos[2])
+            self.t_engage = t
+            self.mode, self.final_path, self.t_pfd_clear = 'CA', None, None
+            self.v_s = np.asarray(self.vel[:2], dtype=float).copy()
+            self.a_s = np.zeros(2)
+            self.get_logger().info(
+                f'[noclimb_ca] next goal ({self.goal[0]:.1f}, {self.goal[1]:.1f}) from the flight driver: re-engaged at '
+                f'({start[0]:.1f}, {start[1]:.1f}, {self.pos[2]:.1f}), path {np.linalg.norm(self.goal - start):.1f} m')
         d_goal = float(np.linalg.norm(self.goal - self.pos[:2]))
         if self.mode == 'WAIT':
             if self.shadow:
@@ -573,16 +630,22 @@ class NoClimbCA(Node):
             elif (self.t_armed is None or t - self.t_armed < self.engage_after_arm
                     or self.cloud is None or self.pos[2] < self.alt - 0.5):
                 return
-            start = self.pos[:2].copy()
-            self.pol.reset([start.tolist(), self.goal.tolist()], [self.alt + self.agl_off] * 2)
-            self.wp_z = float(self.pos[2])
-            self.t_engage = t
-            self.mode = 'CA'
-            self.v_s = np.asarray(self.vel[:2], dtype=float).copy()
-            self.a_s = np.zeros(2)
-            self.get_logger().info(
-                f'[noclimb_ca] engaged at ({start[0]:.1f}, {start[1]:.1f}, {self.pos[2]:.1f}), '
-                f'path {np.linalg.norm(self.goal - start):.1f} m to the goal')
+            if self.prefix is not None and not self.prefix_done and not self.shadow:
+                self.start_prefix(t)
+            else:
+                start = self.pos[:2].copy()
+                self.pol.reset([start.tolist(), self.goal.tolist()], [self.alt + self.agl_off] * 2)
+                self.wp_z = float(self.pos[2])
+                self.t_engage = t
+                self.mode = 'CA'
+                self.v_s = np.asarray(self.vel[:2], dtype=float).copy()
+                self.a_s = np.zeros(2)
+                self.get_logger().info(
+                    f'[noclimb_ca] engaged at ({start[0]:.1f}, {start[1]:.1f}, {self.pos[2]:.1f}), '
+                    f'path {np.linalg.norm(self.goal - start):.1f} m to the goal')
+        if self.mode == 'PREFIX':
+            self.prefix_step(t, d_goal)
+            return
         if self.mode in ('CA', 'PFDIRECT') and d_goal < self.final_switch:
             self.mode = 'FINAL'
             self.final_steps = 0
@@ -648,6 +711,9 @@ class NoClimbCA(Node):
             n = float(np.linalg.norm(d))
             v_cmd = speed * d / n if n > 1e-6 else np.zeros(2)
             dt = self.pol.dt
+            if self.paused:                              # the driver holds the vehicle: the command restarts from it
+                self.v_s = np.asarray(self.vel[:2], dtype=float).copy()
+                self.a_s = np.zeros(2)
             frac = 1.0                                   # 1 clear of obstacles .. 0 inside cmd_fade_near_m
             if self.cmd_fade_far > self.cmd_fade_near > 0.0:
                 frac = float(np.clip((float(out['d_img_min']) - self.cmd_fade_near)
@@ -755,6 +821,70 @@ class NoClimbCA(Node):
         lat = np.abs(p[:, 0] * e[1] - p[:, 1] * e[0])
         sel = (along >= -self.pfd_w) & (along <= length) & (lat < self.pfd_w)
         return max(float(along[sel].min()), 0.0) if sel.any() else float('inf')
+
+    def start_prefix(self, t):
+        home = getattr(self, 'home', None)
+        home = self.pos[:2].copy() if home is None else home
+        P = self.prefix + home
+        if float(np.linalg.norm(P[0] - self.pos[:2])) > 0.5:      # from where the vehicle is
+            P = np.vstack([self.pos[:2], P])
+        self.prefix_abs, self.prefix_seg, self.prefix_steps = P, 0, 0
+        self.t_engage = t
+        self.mode = 'PREFIX'
+        L = float(np.sum(np.linalg.norm(np.diff(P, axis=0), axis=1)))
+        self.get_logger().info(
+            f'[noclimb_ca] prefix: PathFollowing alone along the planned path ({len(P)} points, {L:.1f} m, to '
+            f'({P[-1][0]:.1f}, {P[-1][1]:.1f})) at {self.prefix_speed:.1f} m/s, no avoidance; the policy takes over '
+            f'at its end')
+
+    def prefix_step(self, t, d_goal):
+        """mode PREFIX: the remaining planned path to PathFollowing (1 Hz), the speed eased before corners"""
+        P, pos = self.prefix_abs, self.pos[:2]
+        best, seg = None, self.prefix_seg
+        for i in range(self.prefix_seg, len(P) - 1):     # progress along the path, never backwards
+            a, b = P[i], P[i + 1]
+            ab = b - a
+            L2 = float(ab @ ab)
+            u = 0.0 if L2 < 1e-9 else float(np.clip((pos - a) @ ab / L2, 0.0, 1.0))
+            d = float(np.linalg.norm(a + u * ab - pos))
+            if best is None or d < best - 1e-6:
+                best, seg = d, i
+            elif d > best + 5.0:
+                break
+        self.prefix_seg = seg
+        d_end = float(np.linalg.norm(P[-1] - pos))
+        if d_end < self.prefix_end_r and seg >= len(P) - 2 and not self.prefix_done:
+            # no next leg from the driver (yet): the policy takes over toward its goal from here
+            self.prefix_done, self.reengage = True, True
+            self.get_logger().info(f'[noclimb_ca] prefix end reached ({d_end:.1f} m) - the policy takes over')
+        v = self.prefix_speed
+        s = float(np.linalg.norm(P[seg + 1] - pos))      # along the path to vertex seg + 1
+        to_end = s + float(np.sum(np.linalg.norm(np.diff(P[seg + 1:], axis=0), axis=1))) if seg + 2 < len(P) else s
+        v_end = self.prefix_end_speed if self.prefix_end_speed >= 0.0 else float(self.pol.c['v_max'])
+        v = min(v, math.sqrt(v_end ** 2 + 2.0 * self.prefix_brake * to_end))
+        for j in range(seg + 1, len(P) - 1):
+            a, b, c = P[j - 1], P[j], P[j + 1]
+            l1, l2 = float(np.linalg.norm(b - a)), float(np.linalg.norm(c - b))
+            if l1 < 1e-6 or l2 < 1e-6:
+                continue
+            dpsi = math.acos(float(np.clip(((b - a) / l1) @ ((c - b) / l2), -1.0, 1.0)))
+            if dpsi > math.radians(5.0):
+                # the arc that keeps within prefix_corner_err_m of the corner, cut to half of either leg
+                d_turn = min(self.prefix_corner_e / max(1.0 - math.cos(dpsi / 2.0), 1e-6) * math.tan(dpsi / 2.0),
+                             0.5 * min(l1, l2))
+                R = d_turn / math.tan(dpsi / 2.0)
+                v_c = math.sqrt(self.prefix_corner_a * R)
+                v = min(v, math.sqrt(v_c ** 2 + 2.0 * self.prefix_brake * max(s - d_turn, 0.0)))
+            s += l2
+            if s > 80.0:
+                break
+        self.publish_speed(v)
+        if self.prefix_steps % 20 == 0:                  # at the start, then 1 Hz (the driver times out at 2.5 s)
+            u = (P[-1] - P[-2]) / max(float(np.linalg.norm(P[-1] - P[-2])), 1e-6)
+            rest = [pos] + [P[k] for k in range(seg + 1, len(P))] + [P[-1] + 5.0 * u, P[-1] + 10.0 * u]
+            self.publish_path([np.r_[q, self.alt] for q in rest])
+        self.prefix_steps += 1
+        self.log_row(t, None, d_goal)
 
     def pfd_step(self, t, out, rel, n_obj, density, d_goal):
         """the pf_direct gate; True when this step left the flying to PathFollowing on the line to the goal"""

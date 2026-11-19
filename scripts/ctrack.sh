@@ -8,6 +8,18 @@
 #   ./scripts/ctrack.sh pils PROFILE NAME [FROM GOAL ALT SPEED TIMEOUT]
 #                       PILS: the same apps on the onboard computer - ONBOARD_IP (required) and ONBOARD_SSH=user@host
 #                       (the Jetson set up with scripts/dev/jetson_base_setup.sh + pils_jetson_setup.sh)
+#   CTRACK_LLM=1 ./scripts/ctrack.sh fly|pils PROFILE NAME
+#                       the mission from the operator's words: a local LLM (Ollama, LLM_URL / LLM_MODEL) turns a
+#                       Korean command into legs over the place table (LLM_PLACES, default C-Track); then
+#   ./scripts/ctrack.sh llm                               (another terminal) type the command, "확인" to fly
+#   CTRACK_SEARCH=1 ./scripts/ctrack.sh fly PROFILE NAME   the same with the search camera, 6 m up: "시험장에서 사람
+#                       찾아" -> a lawnmower, YOLOX on the camera, stop + photo + description per person, home;
+#                       people to find: scripts/dev/spawn_people.py
+#   ./scripts/ctrack.sh demo A|B|B-square|B-circle|B-spiral|C|D NAME [PROFILE]
+#                       the final demonstration scenarios (2026-11-06 workshop): A Hybrid PP around the tents, B path
+#                       following through the fan wind, C avoidance WP3 -> GOAL, D all in one flight (PP path flown by
+#                       PathFollowing to WP3, then the policy) - scripts/dev/ctrack_demo.sh; Hybrid PP needs
+#                       scripts/dev/ctrack_pp.sh --install once
 #   ./scripts/ctrack.sh profiles                          the flight profiles (scripts/dev/flight_profiles/*.env)
 #   ./scripts/ctrack.sh stop                              stop the simulator and its containers
 #
@@ -29,13 +41,16 @@ LOG_DIR=$SITL_DEPLOY_DIR/logs
 PROFILES=$REPO/scripts/dev/flight_profiles
 
 api_up() { timeout 2 bash -c "exec 3<>/dev/tcp/127.0.0.1/41451" 2>/dev/null; }
-# the Unreal project was renamed CTrackSim -> A4VAISIM (2026-11-17); older packages keep the old name
+# the Unreal project was renamed CTrackSim -> A4VAISIM (2026-11-17); the v1.0 release package keeps the old name
 unreal_pids() { pgrep -f "[C]TrackSim-Linux-Shipping|[A]4VAISIM-Linux-Shipping|[U]nrealEditor .*(CTrackSim|A4VAISIM)\.uproject"; }
 
+# CTRACK_CAMERA=1: the same with a 1280x720 camera 'search_cam' looking 50 deg down (person search)
 settings_for() {
+    local cam=$([ "${CTRACK_CAMERA:-0}" = 1 ] && echo _cam)
     case "$1" in
-        x8)   echo "$CTRACK/settings/settings_gazebo_mid360.json" ;;
-        x500) echo "$REPO/scripts/dev/unreal_settings/settings_gazebo_mid360_x500.json" ;;
+        x8)   [ -n "$cam" ] && echo "$REPO/scripts/dev/unreal_settings/settings_gazebo_mid360_x8_cam.json" \
+                            || echo "$CTRACK/settings/settings_gazebo_mid360.json" ;;
+        x500) echo "$REPO/scripts/dev/unreal_settings/settings_gazebo_mid360_x500${cam}.json" ;;
         *)    echo "[ctrack] airframe '$1': x8 or x500" >&2; return 1 ;;
     esac
 }
@@ -58,7 +73,7 @@ unreal_start() {
     settings=$(settings_for "$af") || return 1
     [ -f "$settings" ] || { echo "[ctrack] $settings missing - is A4VAI-Unreal installed (scripts/install.sh)?"; return 1; }
     [ -x "$CTRACK/run_unreal.sh" ] || { echo "[ctrack] no $CTRACK/run_unreal.sh - run scripts/install.sh (or set CTRACK_DIR)"; return 1; }
-    if api_up && [ "$(cat "$STATE" 2>/dev/null)" = "$af $map" ]; then
+    if api_up && [ "$(cat "$STATE" 2>/dev/null)" = "$af $map $(basename "$settings")" ]; then
         echo "[ctrack] Unreal is up ($af, $map)"; return 0
     fi
     if api_up || [ -n "$(unreal_pids)" ]; then
@@ -77,7 +92,7 @@ unreal_start() {
         sleep 3
     done
     sleep 25                        # the map and the AirSim vehicle finish loading after the port opens
-    echo "$af $map" > "$STATE"
+    echo "$af $map $(basename "$settings")" > "$STATE"
     echo "[ctrack] Unreal up ($af, $map)"
 }
 
@@ -95,6 +110,8 @@ case "$CMD" in
         PROFILE=${2:?usage: ctrack.sh $CMD PROFILE NAME [FROM GOAL ALT SPEED TIMEOUT]}
         NAME=${3:?usage: ctrack.sh $CMD PROFILE NAME [FROM GOAL ALT SPEED TIMEOUT]}
         AF=$(profile_airframe "$PROFILE") || exit 1
+        # CTRACK_SEARCH=1: person search session = the LLM mission + the camera, flown 6 m up by default
+        [ "${CTRACK_SEARCH:-0}" = 1 ] && export CTRACK_LLM=1 CTRACK_CAMERA=1
         if [ "$CMD" = pils ] && [ -z "${ONBOARD_IP:-}" ]; then
             echo "[ctrack] pils needs ONBOARD_IP=<onboard computer address> (and ONBOARD_SSH=user@host to start it from here)"
             exit 1
@@ -112,7 +129,24 @@ case "$CMD" in
         export CTRACK_MAP=${CTRACK_MAP:-CTrack} CTRACK_DIR=$CTRACK
         shift 3
         [ "$CTRACK_MAP" = Yard ] && [ $# -eq 0 ] && set -- START GOAL      # the yard layout's waypoints
+        [ "${CTRACK_SEARCH:-0}" = 1 ] && [ $# -eq 0 ] && set -- WP3 GOAL 6.0 5.0 1800  # above the obstacles
+        [ "${CTRACK_LLM:-0}" = 1 ] && [ $# -eq 0 ] && set -- WP3 GOAL 1.7 5.0 1200   # time to talk and fly
         CTRACK_MODE=$([ "$CMD" = fly ] && echo sils || echo pils) exec "$REPO/scripts/dev/pils_gate.sh" "$PROFILE" "$NAME" "$@" ;;
+    demo)
+        # the final demonstration scenarios A (path planning) / B (path following in the fan wind) / C (avoidance) /
+        # D (integrated), see scripts/dev/ctrack_demo.sh
+        shift
+        exec "$REPO/scripts/dev/ctrack_demo.sh" "$@" ;;
+    llm)
+        # the operator console of the mission LLM, where the apps run (PILS: ONBOARD_SSH)
+        CMD_IN='source /opt/ros/humble/setup.bash; source /home/user/workspace/ros2/ros2_ws/install/setup.bash; python3 /home/user/workspace/ros2/scripts/tools/llm_console.py'
+        if [ -n "${ONBOARD_SSH:-}" ]; then
+            exec ssh -t "$ONBOARD_SSH" "docker exec -it ros2-onboard bash -c '$CMD_IN'"
+        elif docker ps --format '{{.Names}}' | grep -qx ros2-onboard; then
+            exec docker exec -it ros2-onboard bash -c "$CMD_IN"
+        else
+            exec docker exec -it ros2-env bash -c "$CMD_IN"
+        fi ;;
     profiles)
         printf "%-8s %-6s %s\n" PROFILE FRAME "POLICY (knobs: $PROFILES/PROFILE.env, notes: $PROFILES/README.md)"
         for p in "$PROFILES"/*.env; do
