@@ -5,7 +5,7 @@ take-off point, and writes the ground truth for scripts/dev/search_report.py.
 
     python3 scripts/dev/spawn_people.py [--area 시험장 전체] [--n 3] [--lying 0.5] [--seed 1] [--out people.json]
     python3 scripts/dev/spawn_people.py --clear          # remove the ones spawned before
-Positions are C-Track layout X, Y [m] (= AirSim NED of the CTrack map). Unreal must be up (API 41451).
+Positions are test map layout X, Y [m] (= AirSim NED of the Scenario map). Unreal must be up (API 41451).
 """
 import argparse
 import json
@@ -31,7 +31,7 @@ def quat(roll, pitch, yaw):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--places', default=os.path.join(HERE, '..', 'ros2', 'apps', 'llm_places_ctrack.json'))
+    ap.add_argument('--places', default=os.path.join(HERE, '..', 'ros2', 'apps', 'llm_places_scenario.json'))
     ap.add_argument('--layout', default=None, help='obstacles to keep clear of (default: the installed A4VAI-Unreal layout)')
     ap.add_argument('--area', default='시험장 전체')
     ap.add_argument('--n', type=int, default=3)
@@ -53,10 +53,10 @@ def main():
     xs, ys = [p[0] for p in poly], [p[1] for p in poly]
     layout = a.layout
     if layout is None:
-        for d in (os.environ.get('CTRACK_DIR', ''), os.path.expanduser('~/Documents/A4VAI-SITL/A4VAI-Unreal'),
+        for d in (os.environ.get('SCENARIO_DIR', ''), os.path.expanduser('~/Documents/A4VAI-SITL/A4VAI-Unreal'),
                   os.path.expanduser('~/Desktop/00_Project/00_A4VAI/00_Development/00_Simulator/02_InhouseSim/00_Unreal/00_Map')):
-            if d and os.path.exists(os.path.join(d, 'layout', 'ctrack_layout.json')):
-                layout = os.path.join(d, 'layout', 'ctrack_layout.json')
+            if d and os.path.exists(os.path.join(d, 'layout', 'scenario_layout.json')):
+                layout = os.path.join(d, 'layout', 'scenario_layout.json')
                 break
     obstacles = []
     if layout:

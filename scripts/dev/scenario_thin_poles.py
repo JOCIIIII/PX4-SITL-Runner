@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Make the C-Track poles thinner in the running Unreal, for SILS with the field's real poles (20 mm).
+"""Make the test map's poles thinner in the running Unreal, for SILS with the field's real poles (20 mm).
 
 The Unreal map is built from the layout with 0.5 m poles; this scales the pole actors' X/Y in the running game
 (simSetObjectScale), so the lidar sees the thin pole. Nothing in the Unreal folder changes: restarting Unreal
-brings the map's poles back. Fly with CTRACK_LAYOUT pointing at a layout copy with the same pole size, so that
-Gazebo (collisions) and scripts/dev/ctrack_clearance.py agree with what the lidar sees.
+brings the map's poles back. Fly with SCENARIO_LAYOUT pointing at a layout copy with the same pole size, so that
+Gazebo (collisions) and scripts/dev/scenario_clearance.py agree with what the lidar sees.
 
-usage: ctrack_thin_poles.py [--diameter 0.02] [--pattern '^Pole_'] [--layout LAYOUT]   (Unreal must be up, API 41451)
-       ctrack_thin_poles.py --check                                                    (print the poles' scales)
+usage: scenario_thin_poles.py [--diameter 0.02] [--pattern '^Pole_'] [--layout LAYOUT]  (Unreal must be up, API 41451)
+       scenario_thin_poles.py --check                                                  (print the poles' scales)
 """
 import argparse
 import json
@@ -29,10 +29,10 @@ def main():
     ap.add_argument('--host', default='127.0.0.1')
     a = ap.parse_args()
     if a.layout is None:
-        for d in (os.environ.get('CTRACK_DIR', ''), '~/Documents/A4VAI-SITL/A4VAI-Unreal',
+        for d in (os.environ.get('SCENARIO_DIR', ''), '~/Documents/A4VAI-SITL/A4VAI-Unreal',
                   '~/Desktop/00_Project/00_A4VAI/00_Development/00_Simulator/02_InhouseSim/00_Unreal/00_Map'):
             if d and os.path.isdir(os.path.expanduser(d)):
-                a.layout = os.path.join(os.path.expanduser(d), 'layout', 'ctrack_layout.json')
+                a.layout = os.path.join(os.path.expanduser(d), 'layout', 'scenario_layout.json')
                 break
     lay = json.load(open(a.layout))
     poles = {o['name']: o for o in lay['obstacles'] if re.search(a.pattern, o['name']) and o['shape'] == 'cylinder'}

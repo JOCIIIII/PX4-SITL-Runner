@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Add gazebo_zone_wind_plugin (fan-bank wind for the C-Track scenario B, see the .cpp next to this file) to
+"""Add gazebo_zone_wind_plugin (fan-bank wind for scenario B of the test map, see the .cpp next to this file) to
 PX4's sitl_gazebo-classic build (idempotent): copies the source into src/ and adds the library to
 CMakeLists.txt next to the IMU plugin. The vehicle SDFs (x8 / x500 jinja) load it; without its config file
 it does nothing.

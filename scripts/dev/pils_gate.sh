@@ -1,10 +1,10 @@
 #!/bin/bash
 # The gate before a real flight: a flight profile (scripts/dev/flight_profiles/PROFILE.env - the file
-# scripts/dev/onboard_real.sh fly sources on the vehicle) flown on C-Track with the apps on the onboard computer
+# scripts/dev/onboard_real.sh fly sources on the vehicle) flown on the test map with the apps on the onboard computer
 # (PILS: scripts/dev/pils_onboard.sh there), flight_driver included.
 #   scripts/dev/pils_gate.sh PROFILE NAME [FROM GOAL ALT SPEED TIMEOUT]   (default WP3 GOAL 1.7 5.0 480)
-# env: CTRACK_MODE (pils, default | sils = the same apps on this PC), ONBOARD_IP (pils: required - the onboard
-#      computer's address; a Tailscale 100.x address selects PILS_LINK=wan, see ctrack_super.sh), ONBOARD_SSH
+# env: SCENARIO_MODE (pils, default | sils = the same apps on this PC), ONBOARD_IP (pils: required - the onboard
+#      computer's address; a Tailscale 100.x address selects PILS_LINK=wan, see scenario_super.sh), ONBOARD_SSH
 #      (user@host: start/stop the onboard side over ssh; without it the harness prints the onboard command),
 #      PILS_DOMAIN (default 37)
 # Unreal must run with the airframe's lidar mount: X500 settings_gazebo_mid360_x500.json, X8 settings_gazebo_mid360.json
@@ -24,13 +24,13 @@ while IFS='=' read -r k v; do
     v=$(echo "${v%%#*}" | sed -E 's/[[:space:]]+$//; s/^"(.*)"$/\1/')
     export "$k=$v"
 done < "$P"
-export CTRACK_APP=noclimb_ca SIM_LIDAR=${SIM_LIDAR:-mid360} CTRACK_MODE=${CTRACK_MODE:-pils}
-if [ "$CTRACK_MODE" = pils ]; then
+export SCENARIO_APP=noclimb_ca SIM_LIDAR=${SIM_LIDAR:-mid360} SCENARIO_MODE=${SCENARIO_MODE:-pils}
+if [ "$SCENARIO_MODE" = pils ]; then
     : ${ONBOARD_IP:?PILS needs ONBOARD_IP (the onboard computer, e.g. its Tailscale or LAN address) and usually ONBOARD_SSH=user@host}
     export ONBOARD_IP PILS_DOMAIN=${PILS_DOMAIN:-37}
     [ -n "${ONBOARD_SSH:-}" ] && export ONBOARD_SSH
-    # Tailscale (100.64/10, e.g. the Jetson on its 5G tether): the routed-link PILS (ctrack_super.sh PILS_LINK)
+    # Tailscale (100.64/10, e.g. the Jetson on its 5G tether): the routed-link PILS (scenario_super.sh PILS_LINK)
     case "$ONBOARD_IP" in 100.*) export PILS_LINK=${PILS_LINK:-wan} ;; *) export PILS_LINK=${PILS_LINK:-lan} ;; esac
 fi
-echo "[pils_gate] $PROFILE ($PROFILE_AIRFRAME, $NOCLIMB_POLICY_DIR/$NOCLIMB_POLICY, driver $NOCLIMB_DRIVER) -> $NAME, $CTRACK_MODE ${PILS_LINK:-}"
-exec "$REPO/scripts/dev/ctrack_super.sh" "$NAME" "${3:-WP3}" "${4:-GOAL}" "${5:-1.7}" "${6:-5.0}" "${7:-480}" "$PROFILE_AIRFRAME"
+echo "[pils_gate] $PROFILE ($PROFILE_AIRFRAME, $NOCLIMB_POLICY_DIR/$NOCLIMB_POLICY, driver $NOCLIMB_DRIVER) -> $NAME, $SCENARIO_MODE ${PILS_LINK:-}"
+exec "$REPO/scripts/dev/scenario_super.sh" "$NAME" "${3:-WP3}" "${4:-GOAL}" "${5:-1.7}" "${6:-5.0}" "${7:-480}" "$PROFILE_AIRFRAME"

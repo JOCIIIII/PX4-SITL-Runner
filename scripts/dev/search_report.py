@@ -25,12 +25,12 @@ for _f in ('NanumGothic', 'NanumSquare', 'Noto Sans CJK KR', 'Noto Sans CJK JP')
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from ctrack_clearance import DEF_LAYOUT  # noqa: E402
+from scenario_clearance import DEF_LAYOUT  # noqa: E402
 
 
 def track(run):
-    """flown track in the layout frame from noclimb_ca.csv (PX4 local ENU from the take-off point) + ctrack_run.txt"""
-    meta = open(os.path.join(run, 'ctrack_run.txt')).read().split()
+    """flown track in the layout frame from noclimb_ca.csv (PX4 local ENU from the take-off point) + scenario_run.txt"""
+    meta = open(os.path.join(run, 'scenario_run.txt')).read().split()
     layout = json.load(open(DEF_LAYOUT))
     frm = meta[0]
     fx, fy = layout['waypoints'][frm] if frm in layout['waypoints'] else map(float, frm.split(','))
@@ -93,7 +93,7 @@ def main():
         ax.plot(*fa['xy'], '+', color='tab:orange', ms=10, mew=2)
     ax.set_aspect('equal')
     ax.invert_yaxis()
-    ax.set_xlabel('C-Track X [m]')
+    ax.set_xlabel('layout X [m]')
     ax.set_ylabel('Y [m]')
     ax.set_title(f'Person search {os.path.basename(os.path.normpath(a.run))}: green = placed, red = reported, '
                  f'orange = rejected on a closer look')

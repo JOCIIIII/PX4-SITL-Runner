@@ -1,5 +1,5 @@
 // Fan-bank wind for Gazebo Classic, attached to the vehicle model (x8 / x500 SDF): while the vehicle is in a
-// wind zone it gets the zone's wind, so that the disturbance comes only where the fans are (C-Track final
+// wind zone it gets the zone's wind, so that the disturbance comes only where the fans are (the test map's final
 // demonstration scenario B: three blowers 5 m beside the WP2 -> WP3 lane, ~5 m/s cross wind).
 //
 // Two effects, both from the same wind vector w(t) (world ENU):
@@ -13,8 +13,8 @@
 // smoothly over ramp_m outside it; the gust is an Ornstein-Uhlenbeck process per axis (std, time constant).
 //
 // The zones come from a text file (no file = the plugin does nothing, so the vehicle flies as before):
-//   <configFile> (SDF, default /home/user/workspace/ctrack_zone_wind.txt = the PX4 workspace the C-Track
-//   container mounts; scripts/dev/ctrack_super.sh writes it), one zone per line, '#' comments:
+//   <configFile> (SDF, default /home/user/workspace/scenario_zone_wind.txt = the PX4 workspace the test map's
+//   container mounts; scripts/dev/scenario_super.sh writes it), one zone per line, '#' comments:
 //     name xmin xmax ymin ymax zmin zmax wx wy wz gust_std gust_tau cd_area ramp_m [airspeed]
 //   (Gazebo world ENU metres, m/s, m/s, s, m^2, m). It is read when the plugin loads (the vehicle spawns).
 //   airspeed (optional, default 0): 1 = the body drag acts on the air relative to the vehicle,
@@ -62,7 +62,7 @@ public:
     if (!link_)
       link_ = model->GetLink();
     std::string file = sdf->HasElement("configFile") ? sdf->Get<std::string>("configFile")
-                                                     : "/home/user/workspace/ctrack_zone_wind.txt";
+                                                     : "/home/user/workspace/scenario_zone_wind.txt";
     const char *env_file = std::getenv("ZONE_WIND_FILE");
     if (env_file && *env_file)
       file = env_file;

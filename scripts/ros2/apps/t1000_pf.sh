@@ -120,7 +120,7 @@ ros2 run pathfollowing node_pathfollowing --ros-args ${PF_ARGS} -p vehicle_type:
     ${PF_VEHICLE_ARGS} 2>&1 | tee ${LOGS}/node_pathfollowing.log &
 
 # 4) T1000's path + command -> PF
-# CA_PREFIX_PATH (the integrated test, scripts/dev/ctrack_test.sh all): the planned prefix first - T1000's path /
+# CA_PREFIX_PATH (the integrated test, scripts/dev/scenario_test.sh all): the planned prefix first - T1000's path /
 # speed go to /ca/*, prefix_relay_node.py hands them to the follower after the prefix
 PREFIX_REMAP=""
 if [ -n "${CA_PREFIX_PATH:-}" ]; then

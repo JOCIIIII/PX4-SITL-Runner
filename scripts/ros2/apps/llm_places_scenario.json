@@ -1,6 +1,6 @@
 {
-  "_doc": "Places the mission LLM may choose (C-Track field, A4VAI-Unreal layout/ctrack_layout.json X,Y [m]). The LLM only picks names from this table; llm_mission_node.py turns them into metres from the take-off point. '출발점' is always the take-off point. 'areas': search areas (polygons, same frame) for task=search.",
-  "map": "CTrack",
+  "_doc": "Places the mission LLM may choose (test map, A4VAI-Unreal layout/scenario_layout.json X,Y [m]). The LLM only picks names from this table; llm_mission_node.py turns them into metres from the take-off point. '출발점' is always the take-off point. 'areas': search areas (polygons, same frame) for task=search.",
+  "map": "Scenario",
   "places": {
     "출발점": {
       "take_off": true,
@@ -83,7 +83,7 @@
           34.0
         ]
       ],
-      "desc": "C-Track 시험장 전체"
+      "desc": "실증 시나리오 시험맵 전체"
     },
     "장애물 길": {
       "polygon": [

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Does the simulator lidar put out what the recorded Mid-360 pattern predicts? (for the paper)
 
-Run with Unreal up on the C-Track map with the pattern lidar and NO Gazebo (the vehicle pose is set through
-the AirSim API):   $CTRACK/run_unreal.sh settings/settings_gazebo_mid360.json
+Run with Unreal up on the test map with the pattern lidar and NO Gazebo (the vehicle pose is set through
+the AirSim API):   $SCENARIO_DIR/run_unreal.sh settings/settings_gazebo_mid360.json
 Nothing in the Unreal folder changes: the pole is rescaled in the running game only and put back at the end.
 
   sim_lidar_pattern_check.py [--pole Pole_C1] [--dist 3 5 7 10 12 15] [--diam 0.02 0.03 0.1]

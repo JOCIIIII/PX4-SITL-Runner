@@ -242,7 +242,7 @@ class T1000PF(Node):
         d_goal = float(np.linalg.norm(self.goal - self.pos[:2]))
         # a stall: T1000 at its path's end beside the goal (it dodged sideways near a leg end, remain 0, cross-track
         # metres) holds still for that waypoint, while flight_driver passes a leg only within its radius - restart
-        # T1000's straight path from here to the goal (scripts/dev/ctrack_test.sh pf-ca / all)
+        # T1000's straight path from here to the goal (scripts/dev/scenario_test.sh pf-ca / all)
         moving = getattr(self, 'vel', None) is not None and float(np.linalg.norm(self.vel[:2])) > 0.3
         if float(np.linalg.norm(v)) > 0.05 or moving:
             self.t_active = t

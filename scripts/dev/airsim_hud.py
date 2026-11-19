@@ -10,7 +10,7 @@ ROS2 image has msgpack).
 usage: airsim_hud.py [--host 127.0.0.1] [--port 41451] [--rate 10] [--vehicle ''] [--rest-height 0.44] [--fps]
                      [--text-scale 3] [--text-dist 100] [--text-up 0.42] [--text-left 0.1] [--lidar RPLIDAR_A3] [--lidar-rate 1]
        --rate: pose polls per second (the screen line is redrawn at 2 Hz) - kept low: with 50 Hz polls in
-       ctrack_super.sh runs the land command got lost and GazeboDrone froze (shares AirSim's RPC server); --rest-height: height of the
+       scenario_super.sh runs the land command got lost and GazeboDrone froze (shares AirSim's RPC server); --rest-height: height of the
        vehicle centre above the ground when it stands on it (x8 0.44 m), so Height reads above ground
        --fps also turns on Unreal's frame-rate overlay (console command 'stat fps')
        --text-scale: the speed also drawn large and red at the top centre of the screen (simPlotStrings in

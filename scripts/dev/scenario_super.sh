@@ -1,10 +1,10 @@
 #!/bin/bash
-# Dev harness: SUPER (ROS2_APP=super_pf) on the C-Track field of the InhouseSim Unreal sim
-# (UE 5.8 + Cosys-AirSim 3.5 + its own Gazebo/PX4 container ctrack-sitl) instead of the
+# Dev harness: SUPER (ROS2_APP=super_pf) on the test map of the InhouseSim Unreal sim
+# (UE 5.8 + Cosys-AirSim 3.5 + its own Gazebo/PX4 container scenario-sitl) instead of the
 # A4VAI-SITL compose stack.
 #
-#   1. start the Unreal map first:  $CTRACK_DIR/run_unreal.sh   (API port 41451 on the host)
-#   2. scripts/dev/ctrack_super.sh NAME [FROM] [GOAL] [ALT] [SPEED] [TIMEOUT] [AIRFRAME]
+#   1. start the Unreal map first:  $SCENARIO_DIR/run_unreal.sh  (API port 41451 on the host)
+#   2. scripts/dev/scenario_super.sh NAME [FROM] [GOAL] [ALT] [SPEED] [TIMEOUT] [AIRFRAME]
 #        FROM / GOAL: layout waypoint names (default WP3 = the test drawing's WP2 -> GOAL) or
 #        track coordinates X,Y (e.g. 70,29.5 -> 15,29.5 runs into the RC cart: guard test)
 #        ALT [m above ground] (default 1.5: below the 2 m poles / 3 m wall); PX4's local z is
@@ -16,22 +16,22 @@
 #        = (floor(g/0.3)+3)*0.3+0.15, ceiling = (floor(c/0.3)-3)*0.3-0.15; A* keeps (ground+1.2,
 #        ceiling-1.2), the corridor only (ground+0.8, ceiling-0.8): dodging a pole the trajectory
 #        climbed above the A* band and SUPER could not search from there (hovered beside the first
-#        pole, ctrack_123_a). SUPER's corridor_z_margin (super_planner patch) clamps the corridor to
+#        pole, run 123_a). SUPER's corridor_z_margin (super_planner patch) clamps the corridor to
 #        the A* band: 1.15, a hair wider than A*'s 1.2 - A* paths run right up to their band edge
 #        and a corridor narrower than that (1.35) failed every seed reaching it: SUPER stopped
-#        replanning and the vehicle braked to a halt twice (ctrack_123_c). Ground -1.5, ceiling
+#        replanning and the vehicle braked to a halt twice (run 123_c). Ground -1.5, ceiling
 #        z+2.94 (z = ALT-0.44): trajectory centre within z-0.36 .. z+0.64, A* far below the 2.46 m
 #        it needs to hop an inflated 2 m pole - lateral avoidance only. (Virtual ground 0 = effective 1.05: SUPER saw
 #        a 1.5 m hover as inside the ground and never planned.)
-#        CTRACK_GROUND / CTRACK_CEIL / CTRACK_ZMARGIN override.
+#        SCENARIO_GROUND / SCENARIO_CEIL / SCENARIO_ZMARGIN override.
 #        The RC cart crosses the lane at 1 m/s into SUPER's committed trajectory; SUPER's static map
-#        cannot stop for it (ctrack_123_d: hit at 3-5 m/s, flipped) - super_speed_guard.py brakes
-#        for it (SUPER_PF_SPEED_GUARD=1; CTRACK_GUARD=0 turns it off).
-#        Height: SUPER's band still lets it plan 1.5-2.1 m while dodging (ctrack_123_q median
-#        1.74 m at ALT 1.5); the waypoints to PF are held at ALT (SUPER_PF_HOLD_Z; CTRACK_HOLD=0 off),
+#        cannot stop for it (run 123_d: hit at 3-5 m/s, flipped) - super_speed_guard.py brakes
+#        for it (SUPER_PF_SPEED_GUARD=1; SCENARIO_GUARD=0 turns it off).
+#        Height: SUPER's band still lets it plan 1.5-2.1 m while dodging (run 123_q median
+#        1.74 m at ALT 1.5); the waypoints to PF are held at ALT (SUPER_PF_HOLD_Z; SCENARIO_HOLD=0 off),
 #        and lidar returns lower than 0.5 m under the held centre (below the skids) are kept from
-#        SUPER (SUPER_PF_STATIC_MIN_Z: mis-registered ground stalled ctrack_s900_d).
-# CTRACK_APP=noclimb_ca flies the learned avoidance policy instead of SUPER (the same ROS2 app as
+#        SUPER (SUPER_PF_STATIC_MIN_Z: mis-registered ground stalled run s900_d).
+# SCENARIO_APP=noclimb_ca flies the learned avoidance policy instead of SUPER (the same ROS2 app as
 #   in the forest, scripts/ros2/apps/noclimb_ca.sh: straight path FROM -> GOAL at ALT, the policy
 #   steers around): its NOCLIMB_* knobs come from envs/ros2.env, overridden by the caller's
 #   environment (NOCLIMB_POLICY_DIR=ca_big_onnx NOCLIMB_POLICY=ca_big for the 1 m class bundle);
@@ -41,16 +41,16 @@
 #   node drops returns beyond 10.5 m anyway; lidar hits drawn green) - SUPER needs the default
 #   settings_gazebo.json (Range 40: /cloud_static keeps 25 m).
 #
-# - ctrack-sitl (Gazebo + PX4, host network) runs CTRACK_DIR's own entry script with only the
+# - scenario-sitl (Gazebo + PX4, host network) runs SCENARIO_DIR's own entry script with only the
 #   spawn changed: the vehicle stands on FROM facing GOAL (the original spawns at Start).
 #   PX4's local origin is then FROM.
 # - Our ROS2 image runs alone (no px4-env / gz-sim / airsim-binary) on a 172.70.0.0/16 bridge at
-#   172.70.0.5: this PX4 build's uXRCE-DDS client targets 172.70.0.5:8888 (rcS), and ctrack-sitl
+#   172.70.0.5: this PX4 build's uXRCE-DDS client targets 172.70.0.5:8888 (rcS), and scenario-sitl
 #   sets no ROS_DOMAIN_ID, so the DDS domain is 0. AirSim is the host, 172.70.0.1:41451. The
 #   AirSim ROS2 bridge (Cosys 3.2) talks to the Cosys 3.5 plugin: the RPC adaptor headers of the
 #   two versions are identical.
 # - the goal CSV gets GOAL - FROM in PX4 local ENU (east = dX, north = -dY); restored at the end.
-# CTRACK_MODE=pils (Processor-In-the-Loop): the PC runs only the simulation (Unreal, ctrack-sitl); the
+# SCENARIO_MODE=pils (Processor-In-the-Loop): the PC runs only the simulation (Unreal, scenario-sitl); the
 #   ROS2 apps run on the onboard computer (scripts/dev/pils_onboard.sh there), reached through the two
 #   links the vehicle has: PX4's uXRCE-DDS client is pointed at ONBOARD_IP (a copy of PX4's rcS, the
 #   build stays as it is) and the onboard AirSim bridge pulls the lidar from Unreal over RPC 41451.
@@ -66,31 +66,31 @@
 #   RPC polling over the link timed out) with its lidar and odometry relayed to the onboard computer over one TCP
 #   connection (scripts/ros2/tools/topic_relay.py, port PILS_RELAY_PORT, default 9750).
 # output: ~/Documents/A4VAI-SITL/ROS2/test_runs/NAME (as fly_test.sh) + px4_sitl.ulg; analyse with
-#   scripts/dev/ctrack_clearance.py RUN_DIR and scripts/dev/shake_metrics.py RUN_DIR
+#   scripts/dev/scenario_clearance.py RUN_DIR and scripts/dev/shake_metrics.py RUN_DIR
 set -u
 NAME=$1; FROM=${2:-WP3}; GOALWP=${3:-GOAL}; ALT=${4:-1.5}; SPEED=${5:-5.0}; TIMEOUT=${6:-420}
 AIRFRAME=${7:-x8}
-APP=${CTRACK_APP:-super_pf}
-MODE=${CTRACK_MODE:-sils}
+APP=${SCENARIO_APP:-super_pf}
+MODE=${SCENARIO_MODE:-sils}
 if [ "$MODE" = pils ]; then
-    : ${ONBOARD_IP:?CTRACK_MODE=pils needs ONBOARD_IP (the onboard computer: its LAN or Tailscale address)}
+    : ${ONBOARD_IP:?SCENARIO_MODE=pils needs ONBOARD_IP (the onboard computer: its LAN or Tailscale address)}
     PILS_DOMAIN=${PILS_DOMAIN:-0}
 fi
 REPO=$(dirname $(dirname $(dirname $(readlink -f "$0"))))
 W=~/Documents/A4VAI-SITL
-# the C-Track Unreal folder (A4VAI-Unreal): CTRACK_DIR, else the one scripts/install.sh put next to the workspace,
+# the test map's Unreal folder (A4VAI-Unreal): SCENARIO_DIR, else the one scripts/install.sh put next to the workspace,
 # else the developers' editor checkout
-if [ -z "${CTRACK_DIR:-}" ]; then
-    CTRACK_DIR=$W/A4VAI-Unreal
-    [ -d "$CTRACK_DIR" ] || CTRACK_DIR=$HOME/Desktop/00_Project/00_A4VAI/00_Development/00_Simulator/02_InhouseSim/00_Unreal/00_Map
+if [ -z "${SCENARIO_DIR:-}" ]; then
+    SCENARIO_DIR=$W/A4VAI-Unreal
+    [ -d "$SCENARIO_DIR" ] || SCENARIO_DIR=$HOME/Desktop/00_Project/00_A4VAI/00_Development/00_Simulator/02_InhouseSim/00_Unreal/00_Map
 fi
-CTRACK=$CTRACK_DIR
-# CTRACK_MAP: CTrack (default) or Yard - the Inha aerospace campus courtyard from a SLAM scan (waypoints START,
-# GOAL; tree canopies from 2-3 m up). Start Unreal on the same map: CTRACK_MAP=Yard $CTRACK/run_unreal.sh ...
-MAP=$(basename "${CTRACK_MAP:-CTrack}")
+UNREAL=$SCENARIO_DIR
+# SCENARIO_MAP: Scenario (default) or Yard - the Inha aerospace campus courtyard from a SLAM scan (waypoints START,
+# GOAL; tree canopies from 2-3 m up). Start Unreal on the same map: SCENARIO_MAP=Yard $UNREAL/run_unreal.sh ...
+MAP=$(basename "${SCENARIO_MAP:-Scenario}")
 case "$MAP" in
-    Yard) LAYOUT=${CTRACK_LAYOUT:-$CTRACK/layout/yard_slam_layout.json} ;;
-    *)    LAYOUT=${CTRACK_LAYOUT:-$CTRACK/layout/ctrack_layout.json} ;;
+    Yard) LAYOUT=${SCENARIO_LAYOUT:-$UNREAL/layout/yard_slam_layout.json} ;;
+    *)    LAYOUT=${SCENARIO_LAYOUT:-$UNREAL/layout/scenario_layout.json} ;;
 esac
 IMAGE=$(grep '^ROS2_ENV_IMAGE=' $REPO/envs/ros2.env | cut -d= -f2 | tr -d '"')
 OUT=$W/ROS2/test_runs/$NAME
@@ -99,17 +99,17 @@ GOALS=$W/ROS2/ros2_ws/src/realgazebo_fastplanner_adapters/config/goals_super_far
 mkdir -p "$OUT"; rm -rf "$OUT"/*
 
 if ! timeout 2 bash -c "exec 3<>/dev/tcp/127.0.0.1/41451" 2>/dev/null; then
-    echo "[ctrack] Unreal API (41451) is not up - start $CTRACK/run_unreal.sh first"; exit 1
+    echo "[scenario] Unreal API (41451) is not up - start $UNREAL/run_unreal.sh first"; exit 1
 fi
 if docker ps --format '{{.Names}}' | grep -qx px4-env; then
-    echo "[ctrack] the A4VAI-SITL stack is running - stop it first (scripts/stop.sh)"; exit 1
+    echo "[scenario] the A4VAI-SITL stack is running - stop it first (scripts/stop.sh)"; exit 1
 fi
 
 case "$AIRFRAME" in x8) REST=0.44 ;; x500) REST=0.23 ;; *) REST=0.10 ;; esac   # centre above ground at rest (skid bottom)
 Z=$(python3 -c "print(round($ALT - $REST, 3))")
-CEIL=${CTRACK_CEIL:-$(python3 -c "print(round($Z + 2.94, 2))")}
-GROUND=${CTRACK_GROUND:--1.5}
-ZMARGIN=${CTRACK_ZMARGIN:-1.15}
+CEIL=${SCENARIO_CEIL:-$(python3 -c "print(round($Z + 2.94, 2))")}
+GROUND=${SCENARIO_GROUND:--1.5}
+ZMARGIN=${SCENARIO_ZMARGIN:-1.15}
 read SX SY SYAW GX GY <<< $(python3 - "$LAYOUT" "$FROM" "$GOALWP" <<'EOF'
 import json, math, sys
 wp = json.load(open(sys.argv[1]))['waypoints']
@@ -119,15 +119,15 @@ gx, gy = wp[sys.argv[3]] if sys.argv[3] in wp else map(float, sys.argv[3].split(
 print(fx, -fy, round(math.atan2(-(gy - fy), gx - fx), 4), gx - fx, -(gy - fy))
 EOF
 )
-# CTRACK_LEGS: the mission's goals in order (layout names or X:Y, comma-separated; all but the last pass-through)
-# and CTRACK_PREFIX: a layout-frame path (CSV as CTRACK_PATH) flown by PathFollowing alone before the policy -
+# SCENARIO_LEGS: the mission's goals in order (layout names or X:Y, comma-separated; all but the last pass-through)
+# and SCENARIO_PREFIX: a layout-frame path (CSV as SCENARIO_PATH) flown by PathFollowing alone before the policy -
 # the final demonstration's integrated flight D: the Hybrid PP path Start -> WP2 without avoidance, then the
 # policy WP2 -> WP3 -> WP4 -> Goal. Both as NOCLIMB_LEGS / NOCLIMB_PREFIX_PATH (metres from the take-off point
 # FROM): noclimb_ca.sh and t1000_pf.sh hand the legs to flight_driver, super_pf writes them as SUPER's sequential
 # goals; the prefix is flown by noclimb_ca_node.py itself, for t1000_pf / super_pf by prefix_relay_node.py.
-if [ -n "${CTRACK_LEGS:-}${CTRACK_PREFIX:-}" ]; then
-    case "$APP" in noclimb_ca|t1000_pf|super_pf) ;; *) echo "[ctrack] CTRACK_LEGS / CTRACK_PREFIX: not for $APP"; exit 1 ;; esac
-    eval "$(python3 - "$LAYOUT" "$FROM" "${CTRACK_LEGS:-}" "${CTRACK_PREFIX:-}" <<'PYEOF'
+if [ -n "${SCENARIO_LEGS:-}${SCENARIO_PREFIX:-}" ]; then
+    case "$APP" in noclimb_ca|t1000_pf|super_pf) ;; *) echo "[scenario] SCENARIO_LEGS / SCENARIO_PREFIX: not for $APP"; exit 1 ;; esac
+    eval "$(python3 - "$LAYOUT" "$FROM" "${SCENARIO_LEGS:-}" "${SCENARIO_PREFIX:-}" <<'PYEOF'
 import json, math, sys
 wp = json.load(open(sys.argv[1]))['waypoints']
 pt = lambda s: tuple(wp[s]) if s in wp else tuple(float(v) for v in s.replace(':', ',').split(','))
@@ -152,7 +152,7 @@ if sys.argv[4]:
     print(f"export NOCLIMB_PREFIX_PATH='{';'.join(f'{x - fx:.2f},{-(y - fy):.2f}' for x, y in pts)}'")
 PYEOF
 )" || exit 1
-    echo "[ctrack] legs: ${NOCLIMB_LEGS:-none}; prefix path: $(echo "${NOCLIMB_PREFIX_PATH:-}" | tr ';' '\n' | grep -c .) points"
+    echo "[scenario] legs: ${NOCLIMB_LEGS:-none}; prefix path: $(echo "${NOCLIMB_PREFIX_PATH:-}" | tr ';' '\n' | grep -c .) points"
 fi
 APP_ENV=()
 if [ "$APP" = noclimb_ca ]; then
@@ -172,11 +172,11 @@ elif [ "$APP" = t1000 ] || [ "$APP" = t1000_pf ]; then
     fi
 elif [ "$APP" = mission ]; then
     # PathFollowing alone along a path (apps/mission.sh + flight_driver wp_local; final demonstration scenarios A
-    # and B, PF courses): CTRACK_PATH = a layout-frame path file, rows "X,Y" or "X,Y,h" [m] (h above the ground,
-    # default ALT; a header line and '#' comments are skipped) - scripts/dev/ctrack_pp.py writes one from the
+    # and B, PF courses): SCENARIO_PATH = a layout-frame path file, rows "X,Y" or "X,Y,h" [m] (h above the ground,
+    # default ALT; a header line and '#' comments are skipped) - scripts/dev/scenario_pp.py writes one from the
     # Hybrid PP plan. The vehicle takes off at FROM; SPEED is the PathFollowing cruise speed.
-    : ${CTRACK_PATH:?CTRACK_APP=mission needs CTRACK_PATH (a layout-frame path CSV)}
-    python3 - "$CTRACK_PATH" "$LAYOUT" "$FROM" "$ALT" "$REST" "$OUT/mission_local.csv" <<'PYEOF' || exit 1
+    : ${SCENARIO_PATH:?SCENARIO_APP=mission needs SCENARIO_PATH (a layout-frame path CSV)}
+    python3 - "$SCENARIO_PATH" "$LAYOUT" "$FROM" "$ALT" "$REST" "$OUT/mission_local.csv" <<'PYEOF' || exit 1
 import json, math, sys
 path, layout, frm, alt, rest, out = sys.argv[1:7]
 wp = json.load(open(layout))['waypoints']
@@ -196,12 +196,12 @@ for line in open(path):
         continue
     pts.append((x, y, h))
 if len(pts) < 2:
-    sys.exit(f'[ctrack] {path}: fewer than 2 points')
+    sys.exit(f'[scenario] {path}: fewer than 2 points')
 with open(out, 'w') as f:                          # flight_driver wp_local: north, east, height above take-off
     for x, y, h in pts:
         f.write(f'{-(y - fy):.3f},{x - fx:.3f},{h - float(rest):.3f}\n')
 L = sum(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(pts, pts[1:]))
-print(f'[ctrack] mission path {path}: {len(pts)} points, {L:.1f} m, starts {math.hypot(pts[0][0] - fx, pts[0][1] - fy):.1f} m from {frm}')
+print(f'[scenario] mission path {path}: {len(pts)} points, {L:.1f} m, starts {math.hypot(pts[0][0] - fx, pts[0][1] - fy):.1f} m from {frm}')
 PYEOF
     APP_ENV+=(-e MISSION_CSV=$CMNT/mission_local.csv -e MISSION_TYPE=wp_local -e MISSION_SPEED=$SPEED
               -e MISSION_ALT=$Z -e MISSION_EKF_SETTLE=${MISSION_EKF_SETTLE:-5})
@@ -209,25 +209,30 @@ PYEOF
         APP_ENV+=(-e "$k=${!k}")
     done
 fi
-# CTRACK_WIND=SPEED [m/s]: the fan-bank wind of the layout's wind_zones (scenario B: three blowers beside the
+# SCENARIO_WIND=SPEED [m/s]: the fan-bank wind of the layout's wind_zones (scenario B: three blowers beside the
 # WP2 -> WP3 lane) blows at SPEED through the vehicle plugin scripts/px4/plugins/gazebo_zone_wind_plugin.cpp -
-# rotor drag (PX4's motor-model wind) plus body drag, with Ornstein-Uhlenbeck gusts: CTRACK_WIND_GUST (std,
-# default 1.0 m/s), CTRACK_WIND_TAU (default 2.0 s), CTRACK_WIND_CDA (body CdA, default x8 0.2 / x500 0.08 m^2),
-# CTRACK_WIND_RAMP (fall-off outside the box, default 2.0 m). The layout's own body-drag-only world plugin is set
-# to 0 m/s meanwhile. The plugin reads the zones from the PX4 workspace the container mounts.
-ZW_FILE=$W/PX4-Autopilot/ctrack_zone_wind.txt
+# rotor drag (PX4's motor-model wind) plus body drag, with Ornstein-Uhlenbeck gusts: SCENARIO_WIND_GUST (std,
+# default 1.0 m/s), SCENARIO_WIND_TAU (default 2.0 s), SCENARIO_WIND_CDA (body CdA, default x8 0.2 / x500 0.08 m^2),
+# SCENARIO_WIND_RAMP (fall-off outside the box, default 2.0 m). The layout's own body-drag-only world plugin is set
+# to 0 m/s meanwhile. The plugin reads the zones from the file its model names (<configFile>, in the PX4
+# workspace the container mounts at /home/user/workspace): taken from the built model, so that a PX4 build from
+# before a rename of that file still gets its wind.
+MODEL_SDF=$W/PX4-Autopilot/PX4-Autopilot/Tools/simulation/gazebo-classic/sitl_gazebo-classic/models/$AIRFRAME/$AIRFRAME.sdf
+ZW_NAME=$(sed -n 's|.*<configFile>/home/user/workspace/\([^<]*\)</configFile>.*|\1|p' "$MODEL_SDF" 2>/dev/null | head -1)
+ZW_FILE=$W/PX4-Autopilot/${ZW_NAME:-scenario_zone_wind.txt}
+[ -n "${SCENARIO_WIND:-}" ] && [ -z "$ZW_NAME" ] && echo "[scenario] SCENARIO_WIND: the $AIRFRAME model has no zone wind plugin - no wind"
 rm -f "$ZW_FILE"
-if [ -n "${CTRACK_WIND:-}" ]; then
-    python3 - "$LAYOUT" "$ZW_FILE" "$CTRACK_WIND" "$AIRFRAME" <<'PYEOF' || exit 1
+if [ -n "${SCENARIO_WIND:-}" ]; then
+    python3 - "$LAYOUT" "$ZW_FILE" "$SCENARIO_WIND" "$AIRFRAME" <<'PYEOF' || exit 1
 import json, os, sys
 lay, out, speed, frame = json.load(open(sys.argv[1])), sys.argv[2], float(sys.argv[3]), sys.argv[4]
-gust = float(os.environ.get('CTRACK_WIND_GUST', 1.0))
-tau = float(os.environ.get('CTRACK_WIND_TAU', 2.0))
-cda = float(os.environ.get('CTRACK_WIND_CDA', 0.2 if frame == 'x8' else 0.08))
-ramp = float(os.environ.get('CTRACK_WIND_RAMP', 2.0))
+gust = float(os.environ.get('SCENARIO_WIND_GUST', 1.0))
+tau = float(os.environ.get('SCENARIO_WIND_TAU', 2.0))
+cda = float(os.environ.get('SCENARIO_WIND_CDA', 0.2 if frame == 'x8' else 0.08))
+ramp = float(os.environ.get('SCENARIO_WIND_RAMP', 2.0))
 zones = lay.get('wind_zones', [])
 if not zones:
-    sys.exit('[ctrack] CTRACK_WIND: the layout has no wind_zones')
+    sys.exit('[scenario] SCENARIO_WIND: the layout has no wind_zones')
 with open(out, 'w') as f:
     f.write('# name xmin xmax ymin ymax zmin zmax wx wy wz gust_std gust_tau cd_area ramp  (Gazebo ENU: x = X, y = -Y)\n')
     for z in zones:
@@ -235,7 +240,7 @@ with open(out, 'w') as f:
         dx, dy, dz = z['direction']
         f.write(f"{z['name']} {x0} {x1} {-y1} {-y0} {z0} {z1} {dx * speed:.3f} {-dy * speed:.3f} {dz * speed:.3f} "
                 f"{gust} {tau} {cda} {ramp}\n")
-        print(f"[ctrack] wind {z['name']}: {speed} m/s toward {z['direction']} in X {x0}..{x1}, Y {y0}..{y1}, "
+        print(f"[scenario] wind {z['name']}: {speed} m/s toward {z['direction']} in X {x0}..{x1}, Y {y0}..{y1}, "
               f"gust std {gust} m/s tau {tau} s, body CdA {cda} m^2 (+ rotor drag)")
 PYEOF
     cp "$ZW_FILE" "$OUT/zone_wind.txt"
@@ -251,27 +256,27 @@ if [ "$APP" = super_pf ] || [ "$APP" = t1000_pf ]; then
     [ -n "${NOCLIMB_PREFIX_PATH:-}" ] && APP_ENV+=(-e "CA_PREFIX_PATH=$NOCLIMB_PREFIX_PATH" -e "CA_PREFIX_SPEED=${NOCLIMB_PREFIX_SPEED:-5}")
     [ "$APP" = super_pf ] && [ -n "${NOCLIMB_LEGS:-}" ] && APP_ENV+=(-e "NOCLIMB_LEGS=$NOCLIMB_LEGS")
 fi
-# CTRACK_LLM=1: the mission comes from the operator's words (noclimb_ca.sh LLM_MISSION; talk to it with
-# scripts/ctrack.sh llm): the take-off point in the layout frame and the flight height go to the mission node
-if [ "${CTRACK_LLM:-0}" = 1 ]; then
+# SCENARIO_LLM=1: the mission comes from the operator's words (noclimb_ca.sh LLM_MISSION; talk to it with
+# scripts/scenario.sh llm): the take-off point in the layout frame and the flight height go to the mission node
+if [ "${SCENARIO_LLM:-0}" = 1 ]; then
     APP_ENV+=(-e LLM_MISSION=1 -e "LLM_ORIGIN_XY=$SX,$(python3 -c "print(-($SY))")" -e "LLM_FLIGHT_ALT=$ALT")
     for k in LLM_URL LLM_MODEL LLM_PLACES; do [ -n "${!k:-}" ] && APP_ENV+=(-e "$k=${!k}"); done
 fi
-echo "[ctrack] $FROM -> $GOALWP ($AIRFRAME, $APP): spawn Gazebo ($SX, $SY) yaw $SYAW; goal PX4 local ENU" \
+echo "[scenario] $FROM -> $GOALWP ($AIRFRAME, $APP): spawn Gazebo ($SX, $SY) yaw $SYAW; goal PX4 local ENU" \
      "($GX, $GY, $Z) = $ALT m above ground; SUPER max_vel $SPEED m/s, band ground $GROUND ceil $CEIL corridor z-margin $ZMARGIN"
-[ ${#APP_ENV[@]} -gt 0 ] && echo "[ctrack] app env: ${APP_ENV[*]}"
-echo "$FROM $GOALWP $SX $SY $GX $GY $ALT $SPEED $AIRFRAME $APP $MAP" > "$OUT/ctrack_run.txt"
+[ ${#APP_ENV[@]} -gt 0 ] && echo "[scenario] app env: ${APP_ENV[*]}"
+echo "$FROM $GOALWP $SX $SY $GX $GY $ALT $SPEED $AIRFRAME $APP $MAP" > "$OUT/scenario_run.txt"
 
-docker rm -f ctrack-sitl ros2-env pils-airsim >/dev/null 2>&1
+docker rm -f scenario-sitl ros2-env pils-airsim >/dev/null 2>&1
 
-# 1) Gazebo + PX4 + GazeboDrone (CTRACK_DIR/gazebo/run_gazebo_px4.sh with the spawn on FROM)
+# 1) Gazebo + PX4 + GazeboDrone (SCENARIO_DIR/gazebo/run_gazebo_px4.sh with the spawn on FROM)
 # the RC cart and the wind zone find the vehicle by its Gazebo model name, "x8" in the layout
 # (trigger_model / vehicle_model): for another airframe the world is generated from a copy naming
-# it - with "x8" the cart never started and the wind never blew (ctrack_x500_m360_ca_1)
+# it - with "x8" the cart never started and the wind never blew (run x500_m360_ca_1)
 LAYOUT_GZ=$LAYOUT
-if [ "$AIRFRAME" != x8 ] || [ -n "${CTRACK_WIND:-}" ]; then
+if [ "$AIRFRAME" != x8 ] || [ -n "${SCENARIO_WIND:-}" ]; then
     LAYOUT_GZ=$OUT/layout_$AIRFRAME.json
-    python3 - "$LAYOUT" "$LAYOUT_GZ" "$AIRFRAME" "${CTRACK_WIND:-}" <<'PYEOF'
+    python3 - "$LAYOUT" "$LAYOUT_GZ" "$AIRFRAME" "${SCENARIO_WIND:-}" <<'PYEOF'
 import json, os, sys
 lay = json.load(open(sys.argv[1]))
 # the copy lives in the run dir: files the layout names relative to itself (the Yard ground heightmap) by their
@@ -285,22 +290,22 @@ for m in lay.get('moving_obstacles', []):
 for w in lay.get('wind_zones', []):
     if w.get('vehicle_model') == 'x8':
         w['vehicle_model'] = sys.argv[3]
-    if sys.argv[4]:                  # CTRACK_WIND: the vehicle plugin blows instead of the world plugin, which at
+    if sys.argv[4]:                  # SCENARIO_WIND: the vehicle plugin blows instead of the world plugin, which at
         w['speed_mps'] = 0.0         # 0 m/s would still drag on the airspeed (1/2 rho CdA |v| v) inside its box
         w['cd_area'] = 0.0
 json.dump(lay, open(sys.argv[2], 'w'), indent=1)
 PYEOF
 fi
-"$CTRACK/layout/gen_gazebo_world.py" -l "$LAYOUT_GZ" -o "$CTRACK/gazebo/worlds/ctrack.world" \
-    --mesh-root /ctrack-layout >/dev/null
-ENTRY=$OUT/ctrack_sitl_entry.sh
+"$UNREAL/layout/gen_gazebo_world.py" -l "$LAYOUT_GZ" -o "$UNREAL/gazebo/worlds/scenario.world" \
+    --mesh-root /scenario-layout >/dev/null
+ENTRY=$OUT/scenario_sitl_entry.sh
 sed -E "s/--model-name=\\\$\{MODEL\} -x 0 -y 0 -z 0 -Y 0/--model-name=\${MODEL} -x $SX -y $SY -z 0 -Y $SYAW/" \
-    "$CTRACK/gazebo/ctrack_sitl_entry.sh" > "$ENTRY"
+    "$UNREAL/gazebo/scenario_sitl_entry.sh" > "$ENTRY"
 if ! grep -q -- "-x $SX -y $SY" "$ENTRY"; then
-    echo "[ctrack] spawn line not found in $CTRACK/gazebo/ctrack_sitl_entry.sh"; exit 1
+    echo "[scenario] spawn line not found in $UNREAL/gazebo/scenario_sitl_entry.sh"; exit 1
 fi
 SITL_ENV=()
-# PX4's uXRCE-DDS client goes to the agent of the apps: SILS the ros2-env container (172.70.0.5 on ctrack-ros2), PILS
+# PX4's uXRCE-DDS client goes to the agent of the apps: SILS the ros2-env container (172.70.0.5 on scenario-ros2), PILS
 # the onboard computer. PX4 runs on a copy of the build's etc/ whose rcS names it (the read-only build stays as it is:
 # a fresh build's rcS says 127.0.0.1, only the compose flow's scripts/px4/setDDS.sh rewrites it to 172.70.0.5)
 AGENT_IP=172.70.0.5
@@ -311,52 +316,57 @@ if [ "$MODE" = pils ]; then
     SYNC_OFF=$([ "${PILS_LINK:-lan}" = wan ] && echo 'param set UXRCE_DDS_SYNCT 0; ')
 fi
 LAUNCH='${PX4_BUILD}/bin/px4 -d -w /tmp/px4_rootfs ${PX4_BUILD}/etc'
-grep -qF "$LAUNCH" "$ENTRY" || { echo "[ctrack] PX4 launch line not found in the entry script"; exit 1; }
+grep -qF "$LAUNCH" "$ENTRY" || { echo "[scenario] PX4 launch line not found in the entry script"; exit 1; }
 sed -i "s|\${PX4_BUILD}/bin/px4 -d -w /tmp/px4_rootfs \${PX4_BUILD}/etc|rm -rf /tmp/px4_etc; cp -r \${PX4_BUILD}/etc /tmp/px4_etc; sed -i 's/^uxrce_dds_client start .*/${SYNC_OFF}uxrce_dds_client start -t udp -h $AGENT_IP -p \$uxrce_dds_port \$uxrce_dds_ns/' /tmp/px4_etc/init.d-posix/rcS; \${PX4_BUILD}/bin/px4 -d -w /tmp/px4_rootfs /tmp/px4_etc|" "$ENTRY"
-grep -q "/tmp/px4_etc" "$ENTRY" || { echo "[ctrack] could not point PX4's DDS client at $AGENT_IP"; exit 1; }
+grep -q "/tmp/px4_etc" "$ENTRY" || { echo "[scenario] could not point PX4's DDS client at $AGENT_IP"; exit 1; }
 MIRROR=$(python3 -c "import json,sys; print(','.join(m['name'] for m in json.load(open(sys.argv[1])).get('moving_obstacles', [])))" "$LAYOUT")
-mkdir -p "$OUT/ctrack_logs"
+mkdir -p "$OUT/scenario_logs"
 # GazeboDrone has to mirror the x8 into AirSim before anything flies: sometimes it connects but never gets
 # a Gazebo pose (its log stops at "Connected!"; 4 of ~16 runs on 2026-10-13, none in the ~50 before), the
 # AirSim vehicle stays on the spawn, the lidar keeps sending the start scene and the policy flies blind -
-# into C1 at 5 m/s (ctrack_tau5_2). Restarting GazeboDrone inside the container did not help, a fresh
+# into C1 at 5 m/s (run tau5_2). Restarting GazeboDrone inside the container did not help, a fresh
 # container did (the next run was fine), so: wait for its pose lines ("local (n) x8::..."), else save what
 # Gazebo publishes and start the container again, up to 3 times.
-GD_LOG="$OUT/ctrack_logs/gazebodrone.log"
+GD_LOG="$OUT/scenario_logs/gazebodrone.log"
 gd_ok=0
 for attempt in 1 2 3; do
-    docker run -d --rm --name ctrack-sitl --network host \
+    docker run -d --rm --name scenario-sitl --network host \
         -e SITL_AIRFRAME="$AIRFRAME" -e GUI= -e MIRROR_MODELS="$MIRROR" "${SITL_ENV[@]}" \
         -e DISPLAY="${DISPLAY:-:0}" -v /tmp/.X11-unix:/tmp/.X11-unix \
         -v $W/PX4-Autopilot:/home/user/workspace:ro \
-        -v "$CTRACK/gazebo":/ctrack:ro \
-        -v "$(dirname "$(readlink -f "$LAYOUT")")":/ctrack-layout:ro \
-        -v "$OUT/ctrack_logs":/ctrack-logs \
-        -v "$ENTRY":/ctrack_entry.sh:ro \
-        --entrypoint bash px4io/px4-dev-simulation-focal:latest /ctrack_entry.sh > /dev/null
+        -v "$UNREAL/gazebo":/scenario:ro \
+        -v "$(dirname "$(readlink -f "$LAYOUT")")":/scenario-layout:ro \
+        -v "$OUT/scenario_logs":/scenario-logs \
+        -v "$ENTRY":/scenario_entry.sh:ro \
+        --entrypoint bash px4io/px4-dev-simulation-focal:latest /scenario_entry.sh > /dev/null
     T_GD=$(date +%s)
     while [ $(( $(date +%s) - T_GD )) -lt 45 ]; do
         grep -qs "local (" "$GD_LOG" && { gd_ok=1; break; }
         sleep 1
     done
     [ $gd_ok = 1 ] && break
-    echo "[ctrack] GazeboDrone sends no pose (AirSim frozen), attempt $attempt - starting the simulator container again"
-    docker exec ctrack-sitl bash -c "source /usr/share/gazebo/setup.sh 2>/dev/null; timeout 10 gz topic -l; echo ---; ps -eo pid,etime,stat,cmd | grep -v ' ps '" \
-        > "$OUT/ctrack_logs/freeze_diag_$attempt.txt" 2>&1
-    cp "$GD_LOG" "$OUT/ctrack_logs/gazebodrone_frozen_$attempt.log" 2>/dev/null
-    docker rm -f ctrack-sitl > /dev/null 2>&1
+    echo "[scenario] GazeboDrone sends no pose (AirSim frozen), attempt $attempt - starting the simulator container again"
+    docker exec scenario-sitl bash -c "source /usr/share/gazebo/setup.sh 2>/dev/null; timeout 10 gz topic -l; echo ---; ps -eo pid,etime,stat,cmd | grep -v ' ps '" \
+        > "$OUT/scenario_logs/freeze_diag_$attempt.txt" 2>&1
+    cp "$GD_LOG" "$OUT/scenario_logs/gazebodrone_frozen_$attempt.log" 2>/dev/null
+    docker rm -f scenario-sitl > /dev/null 2>&1
     sleep 3
 done
 if [ $gd_ok = 0 ]; then
-    echo "[ctrack] $NAME: airsim_frozen (GazeboDrone sent no pose in 3 container starts) - not flying"
+    echo "[scenario] $NAME: airsim_frozen (GazeboDrone sent no pose in 3 container starts) - not flying"
     echo airsim_frozen > "$OUT/result.txt"
     exit 1
 fi
 
 # 2) our ROS2 container alone, at the address PX4's DDS client targets
-if ! docker network inspect ctrack-ros2 > /dev/null 2>&1; then
-    if ! docker network create --subnet 172.70.0.0/16 --gateway 172.70.0.1 ctrack-ros2 > /dev/null; then
-        echo "[ctrack] 172.70.0.0/16 is taken (A4VAI-SITL compose network left over? docker network ls)"; exit 1
+if ! docker network inspect scenario-ros2 > /dev/null 2>&1; then
+    # an unused network left on the same subnet (an earlier release named it differently) is removed first
+    for n in $(docker network ls -q); do
+        [ "$(docker network inspect -f '{{range .IPAM.Config}}{{.Subnet}}{{end}}' "$n" 2>/dev/null)" = 172.70.0.0/16 ] \
+            && docker network rm "$n" > /dev/null 2>&1
+    done
+    if ! docker network create --subnet 172.70.0.0/16 --gateway 172.70.0.1 scenario-ros2 > /dev/null; then
+        echo "[scenario] 172.70.0.0/16 is taken (A4VAI-SITL compose network left over? docker network ls)"; exit 1
     fi
 fi
 mkdir -p $W/ROS2/scripts/include
@@ -366,9 +376,9 @@ if [ "$MODE" = pils ]; then
     # the apps run on the onboard computer: hand it the app, its knobs and the goal (no goal file there)
     ONB_ENV=(ROS_DOMAIN_ID=$PILS_DOMAIN ROS2_APP=$APP SITL_AIRFRAME=$AIRFRAME NOCLIMB_GOAL=$GX,$GY NOCLIMB_ALT=$Z
              SUPER_PF_MAX_SPEED=$SPEED SUPER_PF_GOAL_HANDOVER_M=3.0 SUPER_PF_ALT=$Z SUPER_PF_VIRTUAL_GROUND=$GROUND
-             SUPER_PF_VIRTUAL_CEIL=$CEIL SUPER_PF_CORRIDOR_Z_MARGIN=$ZMARGIN SUPER_PF_SPEED_GUARD=${CTRACK_GUARD:-1}
-             SUPER_PF_HOLD_Z=$([ "${CTRACK_HOLD:-1}" = 1 ] && echo $Z)
-             SUPER_PF_STATIC_MIN_Z=$([ "${CTRACK_HOLD:-1}" = 1 ] && python3 -c "print(round($Z - 0.5, 3))")
+             SUPER_PF_VIRTUAL_CEIL=$CEIL SUPER_PF_CORRIDOR_Z_MARGIN=$ZMARGIN SUPER_PF_SPEED_GUARD=${SCENARIO_GUARD:-1}
+             SUPER_PF_HOLD_Z=$([ "${SCENARIO_HOLD:-1}" = 1 ] && echo $Z)
+             SUPER_PF_STATIC_MIN_Z=$([ "${SCENARIO_HOLD:-1}" = 1 ] && python3 -c "print(round($Z - 0.5, 3))")
              AIRSIM_IP=${PILS_AIRSIM_IP:-$(ip route get "$ONBOARD_IP" | awk '{for (i = 1; i < NF; i++) if ($i == "src") print $(i + 1)}')})
     [ -n "${ONBOARD_IMAGE:-}" ] && ONB_ENV+=(ONBOARD_IMAGE=$ONBOARD_IMAGE)
     [ -n "${ONBOARD_RECORDER:-}" ] && ONB_ENV+=(ONBOARD_RECORDER=$ONBOARD_RECORDER)      # the flight_recorder there (off by default)
@@ -379,18 +389,18 @@ if [ "$MODE" = pils ]; then
             "$CW/scripts/airsim-bridge.sh > $CMNT/pc-airsim-bridge.log 2>&1 & source /opt/ros/humble/setup.bash; \
              python3 $CW/scripts/tools/topic_relay.py send $ONBOARD_IP:${PILS_RELAY_PORT:-9750} \
              /airsim_node/SimpleFlight/lidar/points/RPLIDAR_A3 /airsim_node/SimpleFlight/odom_local --dedupe \
-             > $CMNT/pc-relay.log 2>&1" > /dev/null || { echo "[ctrack] pils-airsim did not start"; exit 1; }
+             > $CMNT/pc-relay.log 2>&1" > /dev/null || { echo "[scenario] pils-airsim did not start"; exit 1; }
         ONB_ENV+=(PILS_LINK=wan PILS_RELAY_PORT=${PILS_RELAY_PORT:-9750})
-        echo "[ctrack] PILS over a routed link: PX4 time sync off, AirSim bridge here, relay to $ONBOARD_IP:${PILS_RELAY_PORT:-9750}"
+        echo "[scenario] PILS over a routed link: PX4 time sync off, AirSim bridge here, relay to $ONBOARD_IP:${PILS_RELAY_PORT:-9750}"
     fi
     for kv in "${APP_ENV[@]}"; do [ "$kv" != -e ] && ONB_ENV+=("$kv"); done
     if [ -n "${ONBOARD_SSH:-}" ]; then
         ssh -o BatchMode=yes "$ONBOARD_SSH" "cd ${ONBOARD_REPO:-PX4-SITL-Runner} && env ${ONB_ENV[*]} scripts/dev/pils_onboard.sh $NAME" \
-            || { echo "[ctrack] onboard start over ssh failed"; docker rm -f ctrack-sitl > /dev/null 2>&1; exit 1; }
+            || { echo "[scenario] onboard start over ssh failed"; docker rm -f scenario-sitl > /dev/null 2>&1; exit 1; }
     elif [ "$ONBOARD_IP" = 127.0.0.1 ]; then
-        env "${ONB_ENV[@]}" "$REPO/scripts/dev/pils_onboard.sh" "$NAME" || { docker rm -f ctrack-sitl > /dev/null 2>&1; exit 1; }
+        env "${ONB_ENV[@]}" "$REPO/scripts/dev/pils_onboard.sh" "$NAME" || { docker rm -f scenario-sitl > /dev/null 2>&1; exit 1; }
     else
-        echo "[ctrack] start the onboard side now: env ${ONB_ENV[*]} scripts/dev/pils_onboard.sh $NAME"
+        echo "[scenario] start the onboard side now: env ${ONB_ENV[*]} scripts/dev/pils_onboard.sh $NAME"
     fi
     T0=$(date +%s)
 else
@@ -401,22 +411,22 @@ if [ "$APP" = super_pf ] && [ -n "${NOCLIMB_LEGS:-}" ]; then
 else
     printf 'x,y,z\n%s, %s, %s\n' "$GX" "$GY" "$Z" > "$GOALS"
 fi
-docker run -d --rm --name ros2-env --hostname ros2-env --network ctrack-ros2 --ip 172.70.0.5 \
+docker run -d --rm --name ros2-env --hostname ros2-env --network scenario-ros2 --ip 172.70.0.5 \
     --gpus all --privileged \
     -e ROS_DOMAIN_ID=0 -e AIRSIM_IP=172.70.0.1 -e PX4_IP=127.0.0.1 \
     -e ROS2_APP="$APP" "${APP_ENV[@]}" -e SITL_AIRFRAME="$AIRFRAME" \
     -e SUPER_PF_MAX_SPEED="$SPEED" -e SUPER_PF_GOAL_HANDOVER_M=3.0 \
     -e SUPER_PF_ALT="$Z" -e SUPER_PF_VIRTUAL_GROUND="$GROUND" -e SUPER_PF_VIRTUAL_CEIL="$CEIL" \
-    -e SUPER_PF_CORRIDOR_Z_MARGIN="$ZMARGIN" -e SUPER_PF_SPEED_GUARD="${CTRACK_GUARD:-1}" \
-    -e SUPER_PF_HOLD_Z="$([ "${CTRACK_HOLD:-1}" = 1 ] && echo $Z)" \
-    -e SUPER_PF_STATIC_MIN_Z="$([ "${CTRACK_HOLD:-1}" = 1 ] && python3 -c "print(round($Z - 0.5, 3))")" \
+    -e SUPER_PF_CORRIDOR_Z_MARGIN="$ZMARGIN" -e SUPER_PF_SPEED_GUARD="${SCENARIO_GUARD:-1}" \
+    -e SUPER_PF_HOLD_Z="$([ "${SCENARIO_HOLD:-1}" = 1 ] && echo $Z)" \
+    -e SUPER_PF_STATIC_MIN_Z="$([ "${SCENARIO_HOLD:-1}" = 1 ] && python3 -c "print(round($Z - 0.5, 3))")" \
     -v $W/ROS2:/home/user/workspace/ros2 \
     -w /home/user/workspace --entrypoint bash "$IMAGE" \
     /home/user/workspace/ros2/scripts/sitl-px4-airsim.sh > /dev/null
 
 T0=$(date +%s)
 until docker exec ros2-env test -f /home/user/workspace/ros2/ros2_ws/install/setup.bash 2>/dev/null; do
-    sleep 2; [ $(( $(date +%s) - T0 )) -gt 120 ] && { echo "[ctrack] ros2-env did not come up"; exit 1; }
+    sleep 2; [ $(( $(date +%s) - T0 )) -gt 120 ] && { echo "[scenario] ros2-env did not come up"; exit 1; }
 done
 # SILS keeps the flight_recorder on (this PC has the CPU; airsim_odom.csv / lidar.csv feed the dev tools); ONBOARD_RECORDER=0 turns it off
 if [ "${ONBOARD_RECORDER:-1}" = 1 ]; then
@@ -425,18 +435,18 @@ if [ "${ONBOARD_RECORDER:-1}" = 1 ]; then
 fi
 fi
 
-# speed / height line on the Unreal screen while the run lasts (scripts/dev/airsim_hud.py; CTRACK_HUD=1 on).
+# speed / height line on the Unreal screen while the run lasts (scripts/dev/airsim_hud.py; SCENARIO_HUD=1 on).
 # Off by default: in the 6 runs with it polling AirSim at 50 Hz, the land command got lost 2-3 times
-# (60 s hover at the goal) and GazeboDrone froze once (ctrack_tau5_2) - none in ~50 runs without it.
+# (60 s hover at the goal) and GazeboDrone froze once (run tau5_2) - none in ~50 runs without it.
 HUD_PID=
-if [ "${CTRACK_HUD:-0}" != 0 ]; then
+if [ "${SCENARIO_HUD:-0}" != 0 ]; then
     python3 "$REPO/scripts/dev/airsim_hud.py" > "$OUT/airsim_hud.log" 2>&1 &
     HUD_PID=$!
 fi
 
 # PILS: arm / land straight from PX4 (the recorder writing status.csv runs on the onboard computer)
 PX4_BIN=/home/user/workspace/PX4-Autopilot/build/px4_sitl_default/bin
-px4_arming() { docker exec ctrack-sitl $PX4_BIN/px4-listener vehicle_status -n 1 2>/dev/null | awk '$1 == "arming_state:" {print $2; exit}'; }
+px4_arming() { docker exec scenario-sitl $PX4_BIN/px4-listener vehicle_status -n 1 2>/dev/null | awk '$1 == "arming_state:" {print $2; exit}'; }
 # the app's log: here, or on the onboard computer (PILS over ssh)
 app_log_has() {
     if [ "$MODE" = pils ] && [ -n "${ONBOARD_SSH:-}" ]; then
@@ -458,18 +468,18 @@ while [ $(( $(date +%s) - T0 )) -lt "$TIMEOUT" ]; do
     if [ $armed_seen = 1 ] && [ "$last" = "1" ]; then result=landed; sleep 3; break; fi
     if [ $armed_seen = 0 ] && app_log_has "not taking off"; then result=no_lidar; break; fi
 done
-echo "[ctrack] $NAME: $result after $(( $(date +%s) - T0 ))s"
+echo "[scenario] $NAME: $result after $(( $(date +%s) - T0 ))s"
 [ -n "$HUD_PID" ] && kill "$HUD_PID" 2>/dev/null
 
 if [ "$MODE" = pils ]; then
     if [ -n "${ONBOARD_SSH:-}" ]; then
         ssh -o BatchMode=yes "$ONBOARD_SSH" "cd ${ONBOARD_REPO:-PX4-SITL-Runner} && scripts/dev/pils_onboard.sh --stop $NAME"
         rsync -a "$ONBOARD_SSH:${ONBOARD_WS_REMOTE:-Documents/A4VAI-SITL/ROS2}/test_runs/$NAME/" "$OUT/" \
-            || echo "[ctrack] could not copy the onboard run dir"
+            || echo "[scenario] could not copy the onboard run dir"
     elif [ "$ONBOARD_IP" = 127.0.0.1 ]; then
         "$REPO/scripts/dev/pils_onboard.sh" --stop "$NAME"
     else
-        echo "[ctrack] stop the onboard side and copy its test_runs/$NAME here"
+        echo "[scenario] stop the onboard side and copy its test_runs/$NAME here"
     fi
 else
 docker exec ros2-env pkill -INT -f flight_recorder.py
@@ -481,10 +491,10 @@ docker exec ros2-env bash -c "cp /home/user/workspace/ros2/logs/*.log /home/user
     f=\$(ls -t /home/user/workspace/ros2/logs/flight_driver_*.csv 2>/dev/null | head -1); [ -n \"\$f\" ] && cp \"\$f\" $CMNT/flight_driver.csv; \
     chmod -R a+rw $CMNT"
 fi
-# PX4 log from its rootfs inside ctrack-sitl (closed at disarm)
-ULG=$(docker exec ctrack-sitl bash -c "ls -t /tmp/px4_rootfs/log/*/*.ulg 2>/dev/null | head -1")
-[ -n "$ULG" ] && docker cp "ctrack-sitl:$ULG" "$OUT/px4_sitl.ulg" > /dev/null
-docker rm -f ros2-env ctrack-sitl pils-airsim > /dev/null 2>&1
+# PX4 log from its rootfs inside scenario-sitl (closed at disarm)
+ULG=$(docker exec scenario-sitl bash -c "ls -t /tmp/px4_rootfs/log/*/*.ulg 2>/dev/null | head -1")
+[ -n "$ULG" ] && docker cp "scenario-sitl:$ULG" "$OUT/px4_sitl.ulg" > /dev/null
+docker rm -f ros2-env scenario-sitl pils-airsim > /dev/null 2>&1
 git -C $W/ROS2/ros2_ws/src checkout -- realgazebo_fastplanner_adapters/config/goals_super_far.csv
 # a disarm is not a landing when flight_manager aborted (impact, estimate reset / dead reckoning,
 # PF done far from the goal): it lands in place
@@ -493,5 +503,5 @@ abort=$(grep -ohE "Impact detected|Position estimate reset|dead-reckoning|PF don
 [ -z "$abort" ] && abort=$(grep -ohE "(ABORT - landing in place|YIELD \(no more commands\)): [^[:cntrl:]]*" "$OUT/flight_driver.log" 2>/dev/null \
     | head -1 | cut -c1-140)
 [ "$result" = landed ] && [ -n "$abort" ] && result="aborted ($abort)"
-[ -n "$abort" ] && echo "[ctrack] $NAME: flight FSM: $abort"
+[ -n "$abort" ] && echo "[scenario] $NAME: flight FSM: $abort"
 echo "$result" > "$OUT/result.txt"

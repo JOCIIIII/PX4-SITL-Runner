@@ -6,7 +6,7 @@
   "PhysicsEngineName": "ExternalPhysicsEngine",
   "PawnPaths": {
     "S900": {
-      "PawnBP": "Class'/Game/CTrack/Vehicles/BP_S900Pawn.BP_S900Pawn_C'"
+      "PawnBP": "Class'/Game/Scenario/Vehicles/BP_S900Pawn.BP_S900Pawn_C'"
     }
   },
   "Vehicles": {

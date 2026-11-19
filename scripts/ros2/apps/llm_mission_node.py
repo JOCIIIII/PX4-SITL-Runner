@@ -14,8 +14,8 @@ guards. Flow:
   task=search (an area of the table's 'areas'): a lawnmower over it (lanes search_lane_m apart, pass-through points,
   then home), /search/enable for person_search_node.py, which pauses the flight to look at what it finds
 
-Legs are metres from the take-off point (north = -(Y - Y0), east = X - X0 in the C-Track layout frame, as
-ctrack_super.sh's goal). One mission per session: flight_driver arms once.
+Legs are metres from the take-off point (north = -(Y - Y0), east = X - X0 in the test map layout frame, as
+scenario_super.sh's goal). One mission per session: flight_driver arms once.
 
 ROS parameters: llm_url (Ollama, default http://127.0.0.1:11434; set LLM_URL for a remote one), llm_model (gemma4:12b), places (json),
 origin_xy "X,Y" (the take-off point in the places frame), flight_alt (m above ground, fixed for the session),

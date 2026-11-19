@@ -1,5 +1,5 @@
 #!/bin/bash
-# The final demonstration scenarios (2026-11-06 workshop deck, slides 17-20) on the C-Track field, one run each:
+# The final demonstration scenarios (2026-11-06 workshop deck, slides 17-20) on the test map, one run each:
 #   P          path planning only: Hybrid PP over DEMO_P_POINTS (default START,WP1), no flight
 #   A          path planning: Hybrid PP START -> WP1 around the pre-known tents, flown by PathFollowing alone at DEMO_SPEED
 #   B          path following in the fan wind: WP2 -> WP3 straight at DEMO_SPEED through the DEMO_WIND cross wind
@@ -7,8 +7,8 @@
 #   C          collision avoidance: the policy (PROFILE) WP3 -> WP5 -> WP6 -> GOAL (poles, RC cart, wall, balloon)
 #   D          integrated: Hybrid PP over START -> WP2 -> WP3 -> WP5 -> WP6 -> GOAL; START -> WP3 flown by
 #              PathFollowing alone at DEMO_SPEED (no avoidance, fan wind on), then the policy WP3 -> WP5 -> WP6 -> GOAL
-# usage: scripts/dev/ctrack_demo.sh SCENARIO NAME [PROFILE]     (PROFILE default x8_5sm2: its airframe and, for C / D,
-#        its policy). Knobs: DEMO_SPEED (7), DEMO_ALT (path height above the ground, 1.7 = the C-Track runs' height),
+# usage: scripts/dev/scenario_demo.sh SCENARIO NAME [PROFILE]   (PROFILE default x8_5sm2: its airframe and, for C / D,
+#        its policy). Knobs: DEMO_SPEED (7), DEMO_ALT (path height above the ground, 1.7 = the height of the test map runs),
 #        DEMO_WIND (5 m/s; 0 = off), DEMO_TIMEOUT (600 s), DEMO_COURSE_R / DEMO_COURSE_C (B courses, 15 m at 65,5),
 #        DEMO_SQUARE_FILLET (B-square corner radius [m], default 0 = sharp corners; 7 m/s at 30 deg tilt turns on >= ~9 m),
 #        DEMO_D_COURSE (D: B courses flown at WP2 before WP3, default circle,square,spiral; none = the old D),
@@ -17,13 +17,13 @@
 #        DEMO_D_PREFIX_TO, default WP3), DEMO_RECT (B-rect: "W,H" [m], default 30,40, corner DEMO_SQUARE_FILLET),
 #        DEMO_COURSE_C per course via DEMO_COURSE_C_<square|circle|spiral|rect> (e.g. DEMO_COURSE_C_circle=69,7),
 #        DEMO_D_FILLET (D square corner radius, default 5 m),
-#        and those of ctrack_super.sh / the profile.
+#        and those of scenario_super.sh / the profile.
 # The deck's waypoints are the layout's: deck WP1 = WP2 (79,0), deck WP2 = WP3 (79,26), deck WP3 = WP5 (42,26),
 # deck WP4 = WP6 (26,23); START (0,0), GOAL (0,26). Results: test_runs/NAME (the run) with pp/ (the plan) and
 # demo_summary.txt (path error, wind-zone error, clearance).
 set -u
-SC=${1:?usage: ctrack_demo.sh P|A|B|B-square|B-circle|B-spiral|C|D NAME [PROFILE]}
-NAME=${2:?usage: ctrack_demo.sh SCENARIO NAME [PROFILE]}
+SC=${1:?usage: scenario_demo.sh P|A|B|B-square|B-circle|B-spiral|C|D NAME [PROFILE]}
+NAME=${2:?usage: scenario_demo.sh SCENARIO NAME [PROFILE]}
 PROFILE=${3:-x8_5sm2}
 REPO=$(dirname $(dirname $(dirname $(readlink -f "$0"))))
 W=~/Documents/A4VAI-SITL
@@ -33,15 +33,15 @@ SPEED=${DEMO_SPEED:-7}; ALT=${DEMO_ALT:-1.7}; WIND=${DEMO_WIND:-5}; TIMEOUT=${DE
 PF=$REPO/scripts/dev/flight_profiles/$PROFILE.env
 [ -f "$PF" ] || { echo "[demo] no profile $PF"; exit 1; }
 AF=$(sed -nE 's/^PROFILE_AIRFRAME="?([a-z0-9]+)"?.*/\1/p' "$PF" | head -1)
-if [ -z "${CTRACK_DIR:-}" ]; then
-    CTRACK_DIR=$W/A4VAI-Unreal
-    [ -d "$CTRACK_DIR" ] || CTRACK_DIR=$HOME/Desktop/00_Project/00_A4VAI/00_Development/00_Simulator/02_InhouseSim/00_Unreal/00_Map
+if [ -z "${SCENARIO_DIR:-}" ]; then
+    SCENARIO_DIR=$W/A4VAI-Unreal
+    [ -d "$SCENARIO_DIR" ] || SCENARIO_DIR=$HOME/Desktop/00_Project/00_A4VAI/00_Development/00_Simulator/02_InhouseSim/00_Unreal/00_Map
 fi
-export CTRACK_DIR
-LAYOUT=${CTRACK_LAYOUT:-$CTRACK_DIR/layout/ctrack_layout.json}
+export SCENARIO_DIR
+LAYOUT=${SCENARIO_LAYOUT:-$SCENARIO_DIR/layout/scenario_layout.json}
 ZONE=$(python3 -c "import json,sys; z=json.load(open(sys.argv[1])).get('wind_zones',[]); \
 print(','.join(str(v) for v in z[0]['x_range'] + z[0]['y_range']) if z else '')" "$LAYOUT")
-WIND_ENV=(); [ "$WIND" != 0 ] && WIND_ENV=(CTRACK_WIND=$WIND)
+WIND_ENV=(); [ "$WIND" != 0 ] && WIND_ENV=(SCENARIO_WIND=$WIND)
 rm -rf "$PLAN"; mkdir -p "$PLAN"
 
 load_profile() {   # the profile's knobs into the environment, the caller's values winning (as pils_gate.sh)
@@ -54,7 +54,7 @@ load_profile() {   # the profile's knobs into the environment, the caller's valu
     done < "$PF"
 }
 plan() {   # Hybrid PP over the given points -> $PLAN/pp_path.csv
-    "$REPO/scripts/dev/ctrack_pp.sh" "$PLAN" "$1" --alt "$ALT" "${@:2}" || { echo "[demo] path planning failed"; exit 1; }
+    "$REPO/scripts/dev/scenario_pp.sh" "$PLAN" "$1" --alt "$ALT" "${@:2}" || { echo "[demo] path planning failed"; exit 1; }
 }
 course() {  # a PathFollowing course in the fan zone -> $PLAN/course.csv (layout X,Y), downwind of the fans
     python3 - "$1" "$ZONE" "$PLAN/course.csv" <<'PYEOF'
@@ -103,42 +103,42 @@ PYEOF
 
 case "$SC" in
     P)
-        # path planning only (the PP unit test of scripts/dev/ctrack_test.sh): Hybrid PP over DEMO_P_POINTS (default
+        # path planning only (the PP unit test of scripts/dev/scenario_test.sh): Hybrid PP over DEMO_P_POINTS (default
         # START,WP1 = scenario A's route around the known tents), no flight
         plan "${DEMO_P_POINTS:-START,WP1}"
         rm -rf "$OUT"; mkdir -p "$OUT"; echo planned > "$OUT/result.txt"
         PATH_CSV= ;;
     A)
         plan START,WP1
-        "$REPO/scripts/ctrack.sh" unreal "$AF" > /dev/null || exit 1
-        CTRACK_APP=mission CTRACK_PATH=$PLAN/pp_path.csv "$REPO/scripts/dev/ctrack_super.sh" "$NAME" START WP1 "$ALT" "$SPEED" "$TIMEOUT" "$AF"
+        "$REPO/scripts/scenario.sh" unreal "$AF" > /dev/null || exit 1
+        SCENARIO_APP=mission SCENARIO_PATH=$PLAN/pp_path.csv "$REPO/scripts/dev/scenario_super.sh" "$NAME" START WP1 "$ALT" "$SPEED" "$TIMEOUT" "$AF"
         PATH_CSV=$PLAN/pp_path.csv ;;
     B)
         read B0 B1 <<< "${DEMO_B_LINE:-79,0 79,26}"
         printf 'X,Y\n%s\n%s\n' "$B0" "$B1" > "$PLAN/course.csv"
-        "$REPO/scripts/ctrack.sh" unreal "$AF" > /dev/null || exit 1
-        env "${WIND_ENV[@]}" CTRACK_APP=mission CTRACK_PATH=$PLAN/course.csv \
-            "$REPO/scripts/dev/ctrack_super.sh" "$NAME" "$B0" "$B1" "$ALT" "$SPEED" "$TIMEOUT" "$AF"
+        "$REPO/scripts/scenario.sh" unreal "$AF" > /dev/null || exit 1
+        env "${WIND_ENV[@]}" SCENARIO_APP=mission SCENARIO_PATH=$PLAN/course.csv \
+            "$REPO/scripts/dev/scenario_super.sh" "$NAME" "$B0" "$B1" "$ALT" "$SPEED" "$TIMEOUT" "$AF"
         PATH_CSV=$PLAN/course.csv ;;
     B-square|B-circle|B-spiral|B-rect)
         [ -n "$ZONE" ] || { echo "[demo] the layout has no wind zone"; exit 1; }
         read A0 A1 <<< "$(course "${SC#B-}")"
-        "$REPO/scripts/ctrack.sh" unreal "$AF" > /dev/null || exit 1
-        env "${WIND_ENV[@]}" CTRACK_APP=mission CTRACK_PATH=$PLAN/course.csv \
-            "$REPO/scripts/dev/ctrack_super.sh" "$NAME" "$A0" "$A1" "$ALT" "$SPEED" "$TIMEOUT" "$AF"
+        "$REPO/scripts/scenario.sh" unreal "$AF" > /dev/null || exit 1
+        env "${WIND_ENV[@]}" SCENARIO_APP=mission SCENARIO_PATH=$PLAN/course.csv \
+            "$REPO/scripts/dev/scenario_super.sh" "$NAME" "$A0" "$A1" "$ALT" "$SPEED" "$TIMEOUT" "$AF"
         PATH_CSV=$PLAN/course.csv ;;
     C)
         if [ -n "${DEMO_CA_APP:-}" ] && [ "$DEMO_CA_APP" != noclimb_ca ]; then
             # another avoidance app on the same course: t1000 (T1000's own velocity setpoints to PX4), t1000_pf (T1000
             # through the follower + flight_driver), super_pf (SUPER through the follower). The profile's knobs,
-            # ctrack_super.sh directly; the legs for t1000_pf / super_pf (t1000 owns the flight: WP3 -> GOAL)
-            "$REPO/scripts/ctrack.sh" unreal "$AF" > /dev/null || exit 1
+            # scenario_super.sh directly; the legs for t1000_pf / super_pf (t1000 owns the flight: WP3 -> GOAL)
+            "$REPO/scripts/scenario.sh" unreal "$AF" > /dev/null || exit 1
             LEGS=$([ "$DEMO_CA_APP" = t1000 ] || echo "${DEMO_C_LEGS:-WP5,WP6,GOAL}")
-            ( load_profile; export CTRACK_APP=$DEMO_CA_APP SIM_LIDAR=${SIM_LIDAR:-mid360}
-              [ -n "$LEGS" ] && export CTRACK_LEGS=$LEGS
-              "$REPO/scripts/dev/ctrack_super.sh" "$NAME" WP3 GOAL "$ALT" 5.0 "$TIMEOUT" "$AF" )
+            ( load_profile; export SCENARIO_APP=$DEMO_CA_APP SIM_LIDAR=${SIM_LIDAR:-mid360}
+              [ -n "$LEGS" ] && export SCENARIO_LEGS=$LEGS
+              "$REPO/scripts/dev/scenario_super.sh" "$NAME" WP3 GOAL "$ALT" 5.0 "$TIMEOUT" "$AF" )
         else
-            CTRACK_LEGS=${DEMO_C_LEGS:-WP5,WP6,GOAL} "$REPO/scripts/ctrack.sh" fly "$PROFILE" "$NAME" WP3 GOAL "$ALT" 5.0 "$TIMEOUT"
+            SCENARIO_LEGS=${DEMO_C_LEGS:-WP5,WP6,GOAL} "$REPO/scripts/scenario.sh" fly "$PROFILE" "$NAME" WP3 GOAL "$ALT" 5.0 "$TIMEOUT"
         fi
         PATH_CSV= ;;
     D)
@@ -194,14 +194,14 @@ with open(sys.argv[2], 'w') as f:
         f.write(f'{x:.3f},{y:.3f}\n')
 PYEOF
         if [ -n "${DEMO_CA_APP:-}" ] && [ "$DEMO_CA_APP" != noclimb_ca ]; then
-            # t1000_pf / super_pf: the prefix by prefix_relay_node.py, then the chain (see ctrack_super.sh)
-            "$REPO/scripts/ctrack.sh" unreal "$AF" > /dev/null || exit 1
-            ( load_profile; export CTRACK_APP=$DEMO_CA_APP SIM_LIDAR=${SIM_LIDAR:-mid360}
-              env "${WIND_ENV[@]}" CTRACK_LEGS=${DEMO_D_LEGS:-WP3,WP5,WP6,GOAL} CTRACK_PREFIX=$PLAN/prefix.csv \
-                  NOCLIMB_PREFIX_SPEED=$SPEED "$REPO/scripts/dev/ctrack_super.sh" "$NAME" START GOAL "$ALT" 5.0 "$TIMEOUT" "$AF" )
+            # t1000_pf / super_pf: the prefix by prefix_relay_node.py, then the chain (see scenario_super.sh)
+            "$REPO/scripts/scenario.sh" unreal "$AF" > /dev/null || exit 1
+            ( load_profile; export SCENARIO_APP=$DEMO_CA_APP SIM_LIDAR=${SIM_LIDAR:-mid360}
+              env "${WIND_ENV[@]}" SCENARIO_LEGS=${DEMO_D_LEGS:-WP3,WP5,WP6,GOAL} SCENARIO_PREFIX=$PLAN/prefix.csv \
+                  NOCLIMB_PREFIX_SPEED=$SPEED "$REPO/scripts/dev/scenario_super.sh" "$NAME" START GOAL "$ALT" 5.0 "$TIMEOUT" "$AF" )
         else
-            env "${WIND_ENV[@]}" CTRACK_LEGS=${DEMO_D_LEGS:-WP3,WP5,WP6,GOAL} CTRACK_PREFIX=$PLAN/prefix.csv NOCLIMB_PREFIX_SPEED=$SPEED \
-                "$REPO/scripts/ctrack.sh" fly "$PROFILE" "$NAME" START GOAL "$ALT" 5.0 "$TIMEOUT"
+            env "${WIND_ENV[@]}" SCENARIO_LEGS=${DEMO_D_LEGS:-WP3,WP5,WP6,GOAL} SCENARIO_PREFIX=$PLAN/prefix.csv NOCLIMB_PREFIX_SPEED=$SPEED \
+                "$REPO/scripts/scenario.sh" fly "$PROFILE" "$NAME" START GOAL "$ALT" 5.0 "$TIMEOUT"
         fi
         PATH_CSV=$PLAN/prefix.csv ;;
     *)
@@ -223,8 +223,8 @@ print(f\"Hybrid PP: {'ok' if r['success'] else 'FAILED'}, {r['length_m']} m vs s
 for l in r['legs']:
     print(f\"  {l['from']} -> {l['to']}: {l.get('length_m')} m / {l['reference_m']} m (x{l.get('ratio')}), {l['planning_ms']} ms\")" "$OUT/plan/pp_result.json"
     if [ -n "$PATH_CSV" ]; then
-        python3 "$REPO/scripts/dev/ctrack_path_metrics.py" "$OUT" "$OUT/plan/$(basename "$PATH_CSV")" \
+        python3 "$REPO/scripts/dev/scenario_path_metrics.py" "$OUT" "$OUT/plan/$(basename "$PATH_CSV")" \
             ${ZONE:+--zone $ZONE} --json "$OUT/path_metrics.json"
     fi
-    case "$SC" in C|D) python3 "$REPO/scripts/dev/ctrack_clearance.py" "$OUT" --layout "$LAYOUT" ;; esac
+    case "$SC" in C|D) python3 "$REPO/scripts/dev/scenario_clearance.py" "$OUT" --layout "$LAYOUT" ;; esac
 } 2>&1 | tee "$OUT/demo_summary.txt"

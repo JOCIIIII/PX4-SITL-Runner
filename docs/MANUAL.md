@@ -30,22 +30,22 @@ SHA256 확인; `~/Downloads/A4VAI-Sim-v1.0`에 릴리스 파일 사본을 넣어
 ### 명령
 
 ```bash
-TEST_CA=<회피> ./scripts/ctrack.sh test <시험> <이름> [프로필]
-./scripts/ctrack.sh test table          # 셀마다 가장 최근 결과
+TEST_CA=<회피> ./scripts/scenario.sh test <시험> <이름> [프로필]
+./scripts/scenario.sh test table        # 셀마다 가장 최근 결과
 ```
 
 - `<시험>`: `pp`, `pf`, `ca`, `pp-pf`, `pf-ca`, `all`
 - `TEST_CA`: `inha`(인하대 학습 정책, 기본) · `jbnu`(전북대 T1000) · `super`(SUPER)
-- `<프로필>`: 기체와 인하대 정책(기본 `x8_5sm2`; 목록은 `./scripts/ctrack.sh profiles`)
+- `<프로필>`: 기체와 인하대 정책(기본 `x8_5sm2`; 목록은 `./scripts/scenario.sh profiles`)
 - 시뮬레이터가 하나라 한 번에 하나만 돌립니다. Unreal은 자동으로 뜹니다.
 
 ```bash
-./scripts/ctrack.sh test pp t_pp
-./scripts/ctrack.sh test pf t_pf
-TEST_CA=jbnu  ./scripts/ctrack.sh test ca    t_ca_jbnu
-./scripts/ctrack.sh test pp-pf t_pppf
-TEST_CA=super ./scripts/ctrack.sh test pf-ca t_pfca_super
-TEST_CA=inha  ./scripts/ctrack.sh test all   t_all_inha
+./scripts/scenario.sh test pp t_pp
+./scripts/scenario.sh test pf t_pf
+TEST_CA=jbnu  ./scripts/scenario.sh test ca  t_ca_jbnu
+./scripts/scenario.sh test pp-pf t_pppf
+TEST_CA=super ./scripts/scenario.sh test pf-ca t_pfca_super
+TEST_CA=inha  ./scripts/scenario.sh test all  t_all_inha
 ```
 
 ### 시험별 구성
@@ -86,20 +86,20 @@ TEST_CA=inha  ./scripts/ctrack.sh test all   t_all_inha
 | `TEST_TIMEOUT` | 600 s | 한 비행의 제한 시간 |
 
 `ca`·`pf-ca`와 `all`의 회피 구간은 각 알고리즘의 기본 속도(최대 5 m/s)로 납니다.
-`scripts/dev/ctrack_demo.sh`의 `DEMO_*` 손잡이와 프로필 값(`NOCLIMB_*` 등)도 명령 앞에 붙여 바꿀 수 있습니다.
+`scripts/dev/scenario_demo.sh`의 `DEMO_*` 손잡이와 프로필 값(`NOCLIMB_*` 등)도 명령 앞에 붙여 바꿀 수 있습니다.
 
 ### 결과 보기
 
 - `~/Documents/A4VAI-SITL/ROS2/test_runs/<이름>/test_summary.txt`: 합격·불합격과 기준별 값
 - 같은 폴더의 `demo_summary.txt`(경로 오차, 장애물별 최근접 거리), `px4_sitl.ulg`(PX4 로그), 노드 로그
-- `test_runs/test_matrix.csv`: 모든 실행 기록. `./scripts/ctrack.sh test table`이 셀마다 최근 결과를 표로 보여 줍니다.
+- `test_runs/test_matrix.csv`: 모든 실행 기록. `./scripts/scenario.sh test table`이 셀마다 최근 결과를 표로 보여 줍니다.
 
 ### 알아 둘 점
 
 - RC카는 계속 움직이므로 같은 시험도 카트와 마주치는 시점에 따라 결과가 달라질 수 있습니다. 성공률은 같은 시험을 여러 번 돌려서 보세요.
 - `pp`·`pp-pf`·`all`은 Hybrid PP 라이브러리가 필요합니다. 휠 파일은 이 저장소에 없으니 경로계획 담당에게 받아
-  `scripts/dev/ctrack_pp.sh --install <휠 파일>`로 한 번 설치하세요(GPU 필요).
-- 끝나면 `./scripts/ctrack.sh stop`으로 시뮬레이터를 닫습니다.
+  `scripts/dev/scenario_pp.sh --install <휠 파일>`로 한 번 설치하세요(GPU 필요).
+- 끝나면 `./scripts/scenario.sh stop`으로 시뮬레이터를 닫습니다.
 
 ## 제거
 
@@ -131,5 +131,5 @@ docker run --rm --entrypoint bash -v ~/Documents/A4VAI-SITL/ROS2:/home/user/work
 | `Pool overlaps with other one` | 다른 프로젝트가 172.70.0.0/16 점유 — 해당 네트워크 제거 또는 `scripts/include/commonEnv.sh`의 `SITL_NETWORK_SUBNET` 변경 |
 | `container name already in use` | `docker rm -f px4-env gz-sim airsim-binary ros2-env qgc-app` |
 | airsim_node가 `invalid allocator`로 종료 | 브리지가 구버전 빌드 — `rm -rf ~/Documents/A4VAI-SITL/ROS2/cosys-airsim/ros2/{build,install}` 후 install.sh 재실행 |
-| 시험맵 `fly`가 Unreal을 못 띄움 | `~/Documents/A4VAI-SITL/logs/ctrack_unreal.log` 확인, `./scripts/ctrack.sh stop` 후 재시도 |
+| 시험맵 `fly`가 Unreal을 못 띄움 | `~/Documents/A4VAI-SITL/logs/scenario_unreal.log` 확인, `./scripts/scenario.sh stop` 후 재시도 |
 | 수정한 env/스크립트가 반영 안 됨 | `~/Documents/A4VAI-SITL/` 쪽은 매 실행마다 저장소 사본으로 덮어써짐 — **저장소에서 수정**할 것 |

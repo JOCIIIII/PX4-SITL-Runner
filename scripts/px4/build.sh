@@ -80,7 +80,7 @@ python3 ${BASE_DIR}/x8/patch_motor_model.py ${PX4GazeboSimDir} || exit 1
 # IMU acceleration from the link's velocity (<accelFromVelocity>; idempotent, see
 # scripts/px4/x8/patch_imu_plugin.py) - the force-based reading misses touchdown impulses
 python3 ${BASE_DIR}/x8/patch_imu_plugin.py ${PX4GazeboSimDir} || exit 1
-# fan-bank wind zones for the C-Track scenario B (vehicle plugin, idle without its config file; see
+# fan-bank wind zones for scenario B of the test map (vehicle plugin, idle without its config file; see
 # scripts/px4/plugins/patch_zone_wind_plugin.py)
 python3 ${BASE_DIR}/plugins/patch_zone_wind_plugin.py ${PX4GazeboSimDir} || exit 1
 

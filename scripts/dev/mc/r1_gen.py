@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""RFP R1 (autonomous path planning, PILS): the random maps - N cases, each a C-Track-sized field with random
+"""RFP R1 (autonomous path planning, PILS): the random maps - N cases, each a test-map-sized field with random
 obstacles, a random start and goal, and the global optimum (the reference of R1-2). The planner itself runs
 on the on-board computer (r1_bench.py), r1_eval.py judges.
 
 usage: r1_gen.py OUT_JSON [--n 300] [--seed 20261105]
 
 Random map rules (fixed before the test, docs/montecarlo-plan-2026-11-05.md section 2):
-  field        the C-Track field, X -5..95 m, Y -12..38 m (100 x 50 m; the planner's 400 x 200 px map at 0.25 m)
+  field        the test map, X -5..95 m, Y -12..38 m (100 x 50 m; the planner's 400 x 200 px map at 0.25 m)
   obstacles    5-20 (uniform), each one of
                  box   50 %: 2-10 m x 2-10 m footprint, 3-6 m high, any yaw (tent, container, building)
                  wall  25 %: 4-15 m long, 0.3 m thick, 3 m high, any yaw (fence, plywood wall)
@@ -17,7 +17,7 @@ Random map rules (fixed before the test, docs/montecarlo-plan-2026-11-05.md sect
                >= 40 m apart, the straight line between them blocked by at least one grown obstacle (no trivial
                case), and a path exists (else the map is drawn again)
   reference    the global optimum: the shortest path among the same obstacles grown by the same radius (1.2 m,
-               corner arcs circumscribed - scripts/dev/ctrack_pp.py's inflated_polygon), a visibility graph
+               corner arcs circumscribed - scripts/dev/scenario_pp.py's inflated_polygon), a visibility graph
 """
 import argparse
 import heapq
@@ -29,7 +29,7 @@ import sys
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from ctrack_pp import inflated_polygon, box_corners  # noqa: E402
+from scenario_pp import inflated_polygon, box_corners  # noqa: E402
 
 FIELD = ((-5.0, 95.0), (-12.0, 38.0))
 RADIUS, ALT = 1.2, 1.7

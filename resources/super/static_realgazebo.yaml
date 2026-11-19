@@ -123,7 +123,7 @@ rog_map:
   inflation_step: 3
   unk_inflation_en: false
   unk_inflation_step: 1
-  # c-track 비행영역을 덮도록(드론 스폰 원점 부근). z 는 비행고도(5m)+여유로 16m.
+  # 실증 시나리오 시험맵 비행영역을 덮도록(드론 스폰 원점 부근). z 는 비행고도(5m)+여유로 16m.
   map_size: [ 60, 60, 16 ]
   # If the map rolling is disable, the map origin [m] should be set.
   # ★ origin z 는 map z 범위의 중심 부근으로 — 드론 비행고도(5m)가 ground~ceil 사이에 들도록.

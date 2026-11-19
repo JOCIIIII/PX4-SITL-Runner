@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Path-following error of a C-Track run against its planned path (final demonstration scenarios A, B, D; RFP item:
+"""Path-following error of a test map run against its planned path (final demonstration scenarios A, B, D; RFP item:
 path error <= 1.0 m, also in the fan wind).
 
 The track is the simulator's pose (airsim_odom.csv, the recorder's) when there is one, else PX4's estimate (as
-scripts/dev/ctrack_clearance.py). Only the part flown along the path counts: from the first sample within 1.5 m of it
+scripts/dev/scenario_clearance.py). Only the part flown along the path counts: from the first sample within 1.5 m of it
 at > 1 m/s to the last sample before the path's end (--end-radius), so the take-off climb and the landing do not.
 
-usage: ctrack_path_metrics.py RUN_DIR PATH_CSV [--zone X0,X1,Y0,Y1] [--end-radius 3] [--json OUT]
-  PATH_CSV: layout X,Y[,h] rows (ctrack_pp.py's pp_path.csv, ctrack_demo.sh's course files)
+usage: scenario_path_metrics.py RUN_DIR PATH_CSV [--zone X0,X1,Y0,Y1] [--end-radius 3] [--json OUT]
+  PATH_CSV: layout X,Y[,h] rows (scenario_pp.py's pp_path.csv, scenario_demo.sh's course files)
   --zone: report the error inside this layout box separately (the fan wind zone B: 69,89,3,23)
 """
 import argparse
@@ -19,7 +19,7 @@ import sys
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from ctrack_clearance import load_track  # noqa: E402
+from scenario_clearance import load_track  # noqa: E402
 
 
 def read_path(p):
@@ -61,13 +61,13 @@ def main():
     ap.add_argument('--end-radius', type=float, default=3.0)
     ap.add_argument('--json', default=None)
     a = ap.parse_args()
-    run = open(os.path.join(a.run_dir, 'ctrack_run.txt')).read().split()
+    run = open(os.path.join(a.run_dir, 'scenario_run.txt')).read().split()
     frm = run[0]
     lay_path = os.path.join(a.run_dir, 'layout_used.json')
     if os.path.exists(lay_path):
         wps = json.load(open(lay_path))['waypoints']
     else:
-        from ctrack_clearance import DEF_LAYOUT
+        from scenario_clearance import DEF_LAYOUT
         wps = json.load(open(DEF_LAYOUT))['waypoints']
     fx, fy = wps[frm] if frm in wps else map(float, frm.split(','))
     rest = {'x500': 0.23}.get(run[8] if len(run) > 8 else 'x8', 0.44)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Operator console for the mission LLM (scripts/ros2/apps/llm_mission_node.py): type a Korean command, read the
 plan, answer "확인" to fly or "취소"; "착륙" lands in place at any time. Ctrl+D / Ctrl+C quits (the flight goes on).
-Runs where the apps run (SILS: docker exec -it ros2-env, PILS: the onboard container) - scripts/ctrack.sh llm.
+Runs where the apps run (SILS: docker exec -it ros2-env, PILS: the onboard container) - scripts/scenario.sh llm.
 """
 import sys
 import threading

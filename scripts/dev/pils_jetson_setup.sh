@@ -1,7 +1,7 @@
 #!/bin/bash
 # PILS: set up the onboard computer (Jetson Orin, aarch64 / JetPack 6) to run the ROS2 apps against this
-# PC's simulation - scripts/dev/pils_onboard.sh runs them there, CTRACK_MODE=pils in
-# scripts/dev/ctrack_super.sh flies them. Idempotent; rerun after changing the apps or their sources.
+# PC's simulation - scripts/dev/pils_onboard.sh runs them there, SCENARIO_MODE=pils in
+# scripts/dev/scenario_super.sh flies them. Idempotent; rerun after changing the apps or their sources.
 #   1. this checkout, uncommitted work included -> ~/PX4-SITL-Runner there
 #   2. sources from this PC's workspace -> ~/Documents/A4VAI-SITL/ROS2 there (the same layout as here):
 #      ros2_ws/src without SUPER (not run onboard; T1000 runs in place - t1000_pf.sh) and the Cosys-AirSim source the bridge is
@@ -89,5 +89,5 @@ on "docker rm -f pils-build > /dev/null 2>&1; docker run -d --name pils-build --
     -v \$HOME/$RWS:$MNT --entrypoint bash $IMG $MNT/pils_build.sh > /dev/null"
 code=$(on "docker wait pils-build")
 on "tail -n 5 $RWS/logs/pils_build.log; docker rm pils-build > /dev/null"
-[ "$code" = 0 ] && echo "[pils_setup] done - fly with CTRACK_MODE=pils ONBOARD_IP=${HOST#*@} ONBOARD_SSH=$HOST" \
+[ "$code" = 0 ] && echo "[pils_setup] done - fly with SCENARIO_MODE=pils ONBOARD_IP=${HOST#*@} ONBOARD_SSH=$HOST" \
     || { echo "[pils_setup] build failed (exit $code), see $HOST:$RWS/logs/pils_build.log"; exit 1; }

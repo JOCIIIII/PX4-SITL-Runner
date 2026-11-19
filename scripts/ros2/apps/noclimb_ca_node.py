@@ -142,7 +142,7 @@ class NoClimbCA(Node):
         # pursuit holds a straight line within 0.1 m. The path is two points [here, goal] on purpose: PF flies its
         # last segment with pursuit, not MPPI (see the ext/ext2 note in tick), so a corner before the goal means a
         # mid-air controller switch, and a line that does not match the velocity at the switch rolls the vehicle
-        # (C-Track 10-22: 12 deg roll swings from a 10 m rejoin leg and a 21 deg misaligned start).
+        # (test map 10-22: 12 deg roll swings from a 10 m rejoin leg and a 21 deg misaligned start).
         # prefix_path (final demonstration scenario D): before the policy, PathFollowing alone flies this planned
         # path (Hybrid PP around the pre-known obstacles; "e,n;e,n;..." metres from the take-off point, ENU) at
         # prefix_speed with no avoidance (mode PREFIX), the speed eased before each corner (corner lateral
@@ -201,7 +201,7 @@ class NoClimbCA(Node):
         self.a_s = np.zeros(2)          # acceleration of the shaped command
         # ...applied by obstacle distance (cmd_fade_near_m < cmd_fade_far_m, 0 = everywhere): none while the
         # policy image's nearest return is closer than near, all of them beyond far, in between they
-        # widen (cap / fraction). Everywhere, a4 j8 slowed the turn at C2 into a contact (ctrack_a4j8_1);
+        # widen (cap / fraction). Everywhere, a4 j8 slowed the turn at C2 into a contact (run a4j8_1);
         # 56 % of the fast tilting happened with the nearest obstacle 4-10 m away. Faded 4/6 m, a4 j8
         # kept the C2 turn (5 of 5) but hardly engaged: fast tilting 15.4 -> 14.0 %.
         self.cmd_fade_near = float(p('cmd_fade_near_m', 0.0))
@@ -210,11 +210,11 @@ class NoClimbCA(Node):
         # cmd_tau_s at cmd_fade_far_m. 0.7 s everywhere halved the fast tilting (15.4 -> 6.8 %) but, as
         # cmd_brake_immediate passes speed decreases only, the command heading trailed the policy's by
         # > 30 deg for 26.8 % of the time within 4 m of a return (0.3 s: 9.6 %) and a swerve around C2
-        # came a second late (ctrack_tau7_7, prop tips 0.35 m into the pole; 1 of 8).
+        # came a second late (run tau7_7, prop tips 0.35 m into the pole; 1 of 8).
         self.cmd_tau_near = float(p('cmd_tau_near_s', -1.0))
         # Contact: the nearest return at the vehicle's height (the safety filter's, 3 s memory) closer
         # than contact_dist_m (the prop tips; 0 = off) for contact_time_s -> hold and land in place.
-        # ctrack_a4j8_1 touched C2 at 1.6 m/s - under the impact check's 30 m/s^2 - and stayed wedged
+        # Run a4j8_1 touched C2 at 1.6 m/s - under the impact check's 30 m/s^2 - and stayed wedged
         # 0.4 m from it for 390 s.
         self.contact_dist = float(p('contact_dist_m', 0.0))
         self.contact_time = float(p('contact_time_s', 1.0))
@@ -242,13 +242,13 @@ class NoClimbCA(Node):
         # height action is nearly bang-bang (|a1| < 0.3 in 1 % of the steps): with climbing allowed
         # (ca_big, +6 m) a +1 for a step or two put the WP up to 6 m higher and PF chased it - in
         # the forest 0.6 WP height jumps > 1 m per second, pitch-rate jitter 26 deg/s and thrust
-        # jitter 0.10 (the no-climb policy: 8-10 deg/s, 0.02); on C-Track at 1.5 m a climb /
+        # jitter 0.10 (the no-climb policy: 8-10 deg/s, 0.02); on the test map at 1.5 m a climb /
         # descend cycle with no horizontal progress until the stall input saturated and the
-        # policy stopped (ctrack_big_a). The policy was trained with a follower whose vertical
+        # policy stopped (run big_a). The policy was trained with a follower whose vertical
         # speed is capped at ctrl_vz_max (1.5 m/s).
         self.wp_z_rate = float(p('wp_z_rate', -1.0))
         self.wp_z = None                # rate-limited WP height (from the vehicle's at engagement)
-        # Lidar watchdog (a timeout of 0 = that check off). ctrack_big_e: Unreal crashed 4.8 s in,
+        # Lidar watchdog (a timeout of 0 = that check off). Run big_e: Unreal crashed 4.8 s in,
         # the lidar stopped and the policy kept flying the last scan - cropped to 10.5 m around
         # where it was taken, so soon an empty image - straight into the wall at 5 m/s. Normal
         # gaps: new driver scans every 0.1 s (0.21 s max), /cloud up to 1.3 s (the adapter's tilt
@@ -256,7 +256,7 @@ class NoClimbCA(Node):
         # Speed governor sector [deg either side of the commanded direction]: the reference
         # governor (training rule) caps the policy's speed by the closest cell of the whole 360 deg
         # image, so obstacles beside and behind - already passed - keep the vehicle crawling: in
-        # ctrack_big_c/i the governor held the X8 (image 0.8 m closer) below the policy's 5 m/s for
+        # run big_c/i the governor held the X8 (image 0.8 m closer) below the policy's 5 m/s for
         # 7.5 s of 23, the closest cell behind (> 100 deg) for 4 s of it (C1: from -25 to -152 deg,
         # 2.8 s near 0.8 m/s). < 180: the same law over the cells within this sector only (the
         # safety filter still limits closing in from the side). 180 = the reference governor;
@@ -264,7 +264,7 @@ class NoClimbCA(Node):
         self.gov_sector = float(p('governor_sector_deg', 180.0))
         # Corridor governor [m] (> 0: replaces the sector): the law on the along-track distance
         # to the closest return within this half-width of the commanded line or of the current
-        # velocity line (at the vehicle's height, safety_dz), less range_inflate_m. ctrack_big_j:
+        # velocity line (at the vehicle's height, safety_dz), less range_inflate_m. Run big_j:
         # the policy steered past C1 / C5 with the pole 1.2-2.0 m off its line and kept 5 m/s,
         # yet the +-90 deg governor braked 5 -> 0.6 m/s as the pole came alongside and let go at
         # 90 deg - dodge, brake, dodge, brake. A pole off the line does not cap the speed; the
@@ -275,7 +275,7 @@ class NoClimbCA(Node):
         # to where it enters that circle, and the speed is capped so that v * delay + v^2 / (2 a)
         # <= s (super_speed_guard.py's law). The reference law (floor at d_img 0.8 = 1.6 m with the
         # X8's 0.8 m) only starts below 3.6 m and drops 5 -> 0.6 m/s within ~2 m: the hard brakes
-        # of ctrack_big_j, and once side poles no longer slowed it, too late (big_k, C5 +0.07 m).
+        # of run big_j, and once side poles no longer slowed it, too late (big_k, C5 +0.07 m).
         self.brake_decel = float(p('governor_brake_decel', 0.0))
         self.brake_delay = float(p('governor_brake_delay_s', 0.6))
         # Ground and height reference (bundles trained on height above ground, ground removed from
@@ -318,7 +318,7 @@ class NoClimbCA(Node):
         self.memory_s = float(p('scan_memory_s', 0.0))
         # ...but always keep the last scan_memory_min_scans scans up to scan_memory_max_s old: the
         # window counts from the newest scan, so a gap (the tilt gate dropped 0.72 s while the X8
-        # turned, ctrack_mem_spd_on_3) wiped it and the next, tilted scans without the pole made it
+        # turned, run mem_spd_on_3) wiped it and the next, tilted scans without the pole made it
         # vanish (contact at C1). 0 = the time window alone.
         self.memory_min_scans = int(p('scan_memory_min_scans', 0))
         self.memory_max_s = float(p('scan_memory_max_s', 1.5))

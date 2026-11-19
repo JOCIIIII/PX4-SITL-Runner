@@ -3,7 +3,7 @@
 # ONE-SHOT INSTALLER FOR THE A4VAI SITL SIMULATOR (DISTRIBUTION)
 #
 # After this finishes:
-#   ./scripts/ctrack.sh fly x8_5s first_flight   # C-Track Unreal field, learned avoidance (X8), see README.md
+#   ./scripts/scenario.sh fly x8_5s first_flight  # the test map's Unreal simulator, learned avoidance (X8), see README.md
 #   ./scripts/run-integrated-algorithm.sh        # legacy AirSim forest: SUPER planner + PathFollowing
 #   ./scripts/run-pf-test.sh                     # legacy AirSim forest: PathFollowing only (wp.csv)
 # Remove everything with ./scripts/uninstall.sh
@@ -16,12 +16,12 @@
 #   5. AirSim ROS2 bridge build (Cosys-AirSim 5.4-v3.2)
 #   6. ROS2 workspace build (colcon; again whenever the sources change)
 #   7. runtime resources (settings.json, GazeboDrone, AirSim forest binary)
-#   8. C-Track Unreal simulator (A4VAI-Unreal at UNREAL_REF + its packaged build, no Unreal Engine needed)
+#   8. the test map's Unreal simulator (A4VAI-Unreal at UNREAL_REF + its packaged build, no Unreal Engine needed)
 #
-# The C-Track packaged build (A4VAISIM-Linux.tar.gz, ctrack-gazebo-prebuilt.tar.gz, SHA256SUMS) comes from the
+# The test map's packaged build (A4VAISIM-Linux.tar.gz, scenario-gazebo-prebuilt.tar.gz, SHA256SUMS) comes from the
 # A4VAI-Unreal GitHub release ${UNREAL_REF} ("A4VAI Sim v1.0"); a copy of the three files in ~/Downloads/${UNREAL_REF}
-# (e.g. for an offline install) is used instead when present. An install of an earlier release (inhousesim-v1.0, the
-# CTrackSim build) is moved to ${UNREAL_REF} when this runs again.
+# (e.g. for an offline install) is used instead when present. An install of an earlier release, or of this one before
+# its re-release with the renamed test map files (2026-11-19), is moved to ${UNREAL_REF} when this runs again.
 #
 # Overrides (environment): ROS2_SRC_REPO, ROS2_SRC_BRANCH, UNREAL_REPO, UNREAL_REF,
 #   UNREAL_ASSET_DIR (a folder with the three files, default ~/Downloads/A4VAI-Sim-v1.0),
@@ -44,13 +44,13 @@ LogToFile install "$0" "$@"
 # ---- SOURCES / ASSETS (edit here if forks move) -----------------------------
 ROS2_SRC_REPO=${ROS2_SRC_REPO:-"https://github.com/JOCIIIII/A4VAI-Algorithms-ROS2.git"}
 ROS2_SRC_BRANCH=${ROS2_SRC_BRANCH:-"inhousesim-v1.0"}
-# C-Track Unreal field (UE 5.8 + Cosys-AirSim 3.5): the repo (Gazebo entry, layouts, settings, run_unreal.sh)
+# the test map's Unreal simulator (UE 5.8 + Cosys-AirSim 3.5): the repo (Gazebo entry, layouts, settings, run_unreal.sh)
 # and the packaged build made from the same commit by its package.sh (release assets)
 UNREAL_REPO=${UNREAL_REPO:-"https://github.com/JOCIIIII/A4VAI-Unreal.git"}
 UNREAL_REF=${UNREAL_REF:-"A4VAI-Sim-v1.0"}
 UNREAL_ASSET_DIR=${UNREAL_ASSET_DIR:-"${HOME}/Downloads/${UNREAL_REF}"}
 UNREAL_ASSET_URL=${UNREAL_ASSET_URL:-"https://github.com/JOCIIIII/A4VAI-Unreal/releases/download/${UNREAL_REF}"}
-UNREAL_DIR=${CTRACK_UNREAL_DIR}
+UNREAL_DIR=${SCENARIO_UNREAL_DIR}
 COSYS_REPO="https://github.com/Cosys-Lab/Cosys-AirSim.git"
 COSYS_TAG="5.4-v3.2"                       # must match the AirSim Unreal binary
 RESOURCE_URL="https://github.com/kestr31/PX4-SITL-Runner/releases/download/Resources"
@@ -79,10 +79,14 @@ if [ -z "${DISPLAY}" ] && [ -z "${WAYLAND_DISPLAY}" ]; then
     Fail "no display (DISPLAY/WAYLAND_DISPLAY empty) - a graphical session is mandatory"
 fi
 command -v python3 >/dev/null || Fail "python3 not found (the test map scripts use it)"
-# a C-Track run leaves its ROS2 network (172.70.0.0/16) behind; compose cannot create sitl_network over it
-if docker network inspect ctrack-ros2 >/dev/null 2>&1; then
-    docker network rm ctrack-ros2 >/dev/null 2>&1 || Fail "a test map flight is running (network ctrack-ros2 in use) - ./scripts/ctrack.sh stop, then re-run"
-fi
+# a test map run leaves its ROS2 network (172.70.0.0/16) behind (an earlier release under another name); compose
+# cannot create sitl_network over it
+for n in $(docker network ls -q); do
+    [ "$(docker network inspect -f '{{range .IPAM.Config}}{{.Subnet}}{{end}}' $n 2>/dev/null)" = "172.70.0.0/16" ] || continue
+    NET_NAME=$(docker network inspect -f '{{.Name}}' $n)
+    [ "${NET_NAME}" = "${SITL_NETWORK_NAME}" ] && continue
+    docker network rm $n >/dev/null 2>&1 || Fail "a test map flight is running (network ${NET_NAME} in use) - ./scripts/scenario.sh stop, then re-run"
+done
 command -v sha256sum >/dev/null || Fail "sha256sum not found"
 EchoBoxLine
 
@@ -92,9 +96,9 @@ for var in ROS2_ENV_IMAGE PX4_ENV_IMAGE GAZEBO_CLASSIC_ENV_IMAGE AIRSIM_BINARY_I
     img=$(grep -h "^${var}=" ${REPO_DIR}/envs/*.env | cut -d= -f2)
     [ -n "${img}" ] && ! docker image inspect "${img}" >/dev/null 2>&1 && { docker pull "${img}" || Fail "pull failed: ${img}"; }
 done
-# the C-Track Gazebo/PX4 container (scripts/dev/ctrack_super.sh: ctrack-sitl) runs PX4's own simulation image
-CTRACK_SITL_IMAGE="px4io/px4-dev-simulation-focal:latest"
-docker image inspect "${CTRACK_SITL_IMAGE}" >/dev/null 2>&1 || docker pull "${CTRACK_SITL_IMAGE}" || Fail "pull failed: ${CTRACK_SITL_IMAGE}"
+# the test map's Gazebo/PX4 container (scripts/dev/scenario_super.sh: scenario-sitl) runs PX4's own simulation image
+SCENARIO_SITL_IMAGE="px4io/px4-dev-simulation-focal:latest"
+docker image inspect "${SCENARIO_SITL_IMAGE}" >/dev/null 2>&1 || docker pull "${SCENARIO_SITL_IMAGE}" || Fail "pull failed: ${SCENARIO_SITL_IMAGE}"
 EchoBoxLine
 
 # ---- 3. PX4 -----------------------------------------------------------------
@@ -106,7 +110,7 @@ docker network rm ${SITL_NETWORK_NAME} >/dev/null 2>&1
 if [ ! -f ${PX4_WORKSPACE}/PX4-Autopilot/build/px4_sitl_default/bin/px4 ]; then
     ${BASE_DIR}/run.sh px4 build || Fail "px4 build failed"
     [ -f ${PX4_WORKSPACE}/PX4-Autopilot/build/px4_sitl_default/bin/px4 ] || Fail "px4 build failed (no bin/px4) - see the output above"
-    # the build ran under compose: its sitl_network (172.70/16) would block the C-Track network
+    # the build ran under compose: its sitl_network (172.70/16) would block the test map's network
     docker network rm ${SITL_NETWORK_NAME} >/dev/null 2>&1
 else
     EchoYellow "[install.sh] PX4 already built - skipping"
@@ -209,19 +213,23 @@ if [ ! -d ${UNREAL_DIR}/.git ]; then
         git -C ${UNREAL_DIR} sparse-checkout set gazebo layout settings || Fail "clone A4VAI-Unreal ${UNREAL_REF} failed"
     echo "${UNREAL_REF}" > ${UNREAL_DIR}/.git/installed_ref
 fi
-# an install of an earlier release (e.g. inhousesim-v1.0, the CTrackSim build): move the checkout to ${UNREAL_REF}
-# and drop the old package, so the release files below are fetched again
+# ${UNREAL_REF} was re-released under the same tag when the test map files were renamed (2026-11-19): a checkout
+# without layout/scenario_layout.json is the earlier one and is updated like an earlier release
+[ -d ${UNREAL_DIR}/.git ] && [ ! -f ${UNREAL_DIR}/layout/scenario_layout.json ] && rm -f ${UNREAL_DIR}/.git/installed_ref
+# an install of an earlier release: move the checkout to ${UNREAL_REF} (the tag may have moved, hence --force) and
+# drop the old package and Gazebo binaries, so the release files below are fetched again
 if [ "$(cat ${UNREAL_DIR}/.git/installed_ref 2>/dev/null)" != "${UNREAL_REF}" ]; then
     EchoGreen "[install.sh] A4VAI-Unreal: moving the checkout to ${UNREAL_REF}"
-    git -C ${UNREAL_DIR} fetch -q --depth 1 origin tag ${UNREAL_REF} && git -C ${UNREAL_DIR} checkout -q -f ${UNREAL_REF} || \
+    git -C ${UNREAL_DIR} fetch -q --force --depth 1 origin tag ${UNREAL_REF} && git -C ${UNREAL_DIR} checkout -q -f ${UNREAL_REF} || \
         Fail "updating A4VAI-Unreal to ${UNREAL_REF} failed"
-    rm -rf ${UNREAL_DIR}/.release ${UNREAL_DIR}/packaged
+    rm -rf ${UNREAL_DIR}/.release ${UNREAL_DIR}/packaged ${UNREAL_DIR}/gazebo/bin ${UNREAL_DIR}/gazebo/plugins/build \
+        ${UNREAL_DIR}/gazebo/worlds
     echo "${UNREAL_REF}" > ${UNREAL_DIR}/.git/installed_ref
 fi
 if [ ! -x ${UNREAL_DIR}/packaged/A4VAISIM-Linux/A4VAISIM.sh ] || [ ! -x ${UNREAL_DIR}/gazebo/bin/GazeboDrone ]; then
     ASSETS=${UNREAL_DIR}/.release
     mkdir -p ${ASSETS}
-    for a in SHA256SUMS A4VAISIM-Linux.tar.gz ctrack-gazebo-prebuilt.tar.gz; do
+    for a in SHA256SUMS A4VAISIM-Linux.tar.gz scenario-gazebo-prebuilt.tar.gz; do
         [ -f ${ASSETS}/${a} ] && continue
         if [ -f "${UNREAL_ASSET_DIR}/${a}" ]; then
             cp "${UNREAL_ASSET_DIR}/${a}" ${ASSETS}/${a} || Fail "copying ${UNREAL_ASSET_DIR}/${a} failed"
@@ -236,7 +244,7 @@ if [ ! -x ${UNREAL_DIR}/packaged/A4VAISIM-Linux/A4VAISIM.sh ] || [ ! -x ${UNREAL
     mkdir -p ${UNREAL_DIR}/packaged
     rm -rf ${UNREAL_DIR}/packaged/A4VAISIM-Linux
     tar -xzf ${ASSETS}/A4VAISIM-Linux.tar.gz -C ${UNREAL_DIR}/packaged || Fail "extracting the packaged build failed"
-    tar -xzf ${ASSETS}/ctrack-gazebo-prebuilt.tar.gz -C ${UNREAL_DIR} || Fail "extracting the Gazebo binaries failed"
+    tar -xzf ${ASSETS}/scenario-gazebo-prebuilt.tar.gz -C ${UNREAL_DIR} || Fail "extracting the Gazebo binaries failed"
     rm -f ${ASSETS}/*.tar.gz
 else
     EchoYellow "[install.sh] the test map's Unreal simulator already installed - skipping"
@@ -246,5 +254,5 @@ EchoBoxLine
 # ---- SUMMARY ----------------------------------------------------------------
 EchoGreen "[install.sh] INSTALL COMPLETE."
 EchoGreen "[install.sh] fly on the demonstration scenario test map (실증 시나리오 시험맵, README.md section 4):"
-EchoGreen "[install.sh]   ./scripts/ctrack.sh fly x8_5s first_flight      (Unreal starts with the profile's airframe)"
+EchoGreen "[install.sh]   ./scripts/scenario.sh fly x8_5s first_flight    (Unreal starts with the profile's airframe)"
 EchoGreen "[install.sh] uninstall with: ./scripts/uninstall.sh"

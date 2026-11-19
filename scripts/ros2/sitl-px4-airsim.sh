@@ -44,7 +44,7 @@ ${BASE_DIR}/uxrce-dds.sh 2>&1 | tee ${WORKSPACE_DIR}/logs/uxrce-dds.log &
 touch ${WORKSPACE_DIR}/logs/airsim-bridge.log
 if [ "${PILS_LINK:-lan}" = wan ]; then
     # PILS over a routed link (onboard computer on Tailscale / 5G): the AirSim bridge runs next to Unreal on the
-    # simulator PC (scripts/dev/ctrack_super.sh) and its lidar / odometry topics arrive over one TCP connection
+    # simulator PC (scripts/dev/scenario_super.sh) and its lidar / odometry topics arrive over one TCP connection
     python3 ${BASE_DIR}/tools/topic_relay.py recv ${PILS_RELAY_PORT:-9750} 2>&1 | tee ${WORKSPACE_DIR}/logs/airsim-bridge.log &
 else
     ${BASE_DIR}/airsim-bridge.sh 2>&1 | tee ${WORKSPACE_DIR}/logs/airsim-bridge.log &

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""The test matrix at a glance: the latest run of each of the 12 cells of scripts/dev/ctrack_test.sh.
+"""The test matrix at a glance: the latest run of each of the 12 cells of scripts/dev/scenario_test.sh.
 
-  python3 scripts/dev/ctrack_test_table.py [test_matrix.csv]      (or: ./scripts/ctrack.sh test table)
+  python3 scripts/dev/scenario_test_table.py [test_matrix.csv]    (or: ./scripts/scenario.sh test table)
 
 Cells: pp; pf; ca, pf-ca and all x {inha, jbnu, super}; pp-pf. Path following is PathFollowing's MPPI throughout
 (the CA unit test flies each avoidance with its own default chain). A cell never run shows "-"; runs of earlier

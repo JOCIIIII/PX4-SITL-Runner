@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Closed-loop check of scripts/ros2/apps/super_speed_guard.py (GuardCore) on the C-Track layout,
+"""Closed-loop check of scripts/ros2/apps/super_speed_guard.py (GuardCore) on the test map layout,
 without the simulator.
 
 lidar: the AirSim one of the X8 (0.3 m above the centre, 32 channels -7..+52 deg, 192 azimuths
@@ -7,7 +7,7 @@ lidar: the AirSim one of the X8 (0.3 m above the centre, 32 channels -7..+52 deg
 (shuttles start <-> end from its start: in crossing / sweep its plugin rule - when the vehicle comes
 within trigger_distance of trigger_point, or at t=0 for a layout without a trigger; for recorded runs
 the start in the run's gzserver log, see cart_start). Vehicle: on a straight path at a fixed height; its speed follows the
-guarded command after a delay with acceleration limits (PathFollowing guid 0 in ctrack_sp_c/d:
+guarded command after a delay with acceleration limits (PathFollowing guid 0 in run sp_c/d:
 a /desired_speed drop shows after ~0.5 s, then ~3 m/s^2).
 
   crossing  - fly START -> GOAL (default the 123_h line 54,29 -> 20,30, where the cart crosses the
@@ -25,14 +25,14 @@ a /desired_speed drop shows after ~0.5 s, then ~3 m/s^2).
               cart moving (a trail in SUPER's map); exit status 1 if any
 
 Run these inside the ROS image before flying a change (numpy 2.2 there, 1.26 on the host: a
-removed ndarray method passed here and blinded the guard in flight, ctrack_123_n), together with
+removed ndarray method passed here and blinded the guard in flight, run 123_n), together with
 scripts/dev/speed_guard_node_test.py. The Desktop layout path does not bind-mount into docker -
 copy the layout next to the run dirs and pass --layout:
-  cp $LAYOUT ~/Documents/A4VAI-SITL/ROS2/ctrack_layout.json
+  cp $LAYOUT ~/Documents/A4VAI-SITL/ROS2/scenario_layout.json
   docker run --rm -e HOME=$HOME -v $HOME/PX4-SITL-Runner:$HOME/PX4-SITL-Runner:ro \
       -v $HOME/Documents/A4VAI-SITL/ROS2:$HOME/Documents/A4VAI-SITL/ROS2 --entrypoint bash \
       jociiiii/a4vai:inhousesim-v0.9 -c "cd $HOME/PX4-SITL-Runner; python3 scripts/dev/speed_guard_sim.py eval \
-      $HOME/Documents/A4VAI-SITL/ROS2/test_runs/ctrack_123_[i-r] --layout $HOME/Documents/A4VAI-SITL/ROS2/ctrack_layout.json"
+      $HOME/Documents/A4VAI-SITL/ROS2/test_runs/RUN_NAME ... --layout $HOME/Documents/A4VAI-SITL/ROS2/scenario_layout.json"
 
 usage: speed_guard_sim.py crossing [--start 54,29] [--goal 20,30] [--speed 5] [--height 1.6]
        speed_guard_sim.py sweep
@@ -53,7 +53,7 @@ warnings.filterwarnings('ignore')
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'ros2', 'apps'))
 from super_speed_guard import GuardCore  # noqa: E402
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from ctrack_clearance import cart_starts, px4_offset  # noqa: E402
+from scenario_clearance import cart_starts, px4_offset  # noqa: E402
 
 
 def cart_start(mo, run_dir, t, X, Y):
@@ -72,16 +72,16 @@ def cart_start(mo, run_dir, t, X, Y):
     return None
 
 
-def _ctrack_dir():
-    """CTRACK_DIR, else the installed A4VAI-Unreal (scripts/install.sh), else the developers' checkout"""
-    for d in (os.environ.get('CTRACK_DIR', ''), '~/Documents/A4VAI-SITL/A4VAI-Unreal',
+def _scenario_dir():
+    """SCENARIO_DIR, else the installed A4VAI-Unreal (scripts/install.sh), else the developers' checkout"""
+    for d in (os.environ.get('SCENARIO_DIR', ''), '~/Documents/A4VAI-SITL/A4VAI-Unreal',
               '~/Desktop/00_Project/00_A4VAI/00_Development/00_Simulator/02_InhouseSim/00_Unreal/00_Map'):
         if d and os.path.isdir(os.path.expanduser(d)):
             return os.path.expanduser(d)
     return os.path.expanduser('~/Documents/A4VAI-SITL/A4VAI-Unreal')
 
 
-LAYOUT = os.path.join(_ctrack_dir(), 'layout', 'ctrack_layout.json')
+LAYOUT = os.path.join(_scenario_dir(), 'layout', 'scenario_layout.json')
 AZ = np.radians(np.arange(192) * 360.0 / 192)
 EL = np.radians(-7.0 + np.arange(32) * 59.0 / 31)
 DIRS = np.stack([np.cos(EL)[:, None] * np.cos(AZ)[None], np.cos(EL)[:, None] * np.sin(AZ)[None],
@@ -218,7 +218,7 @@ def crossing(start, goal, speed, height, lay, static, quiet=False, delay=0.5, br
 
 def replay(run_dir, lay, static):
     mo = lay['moving_obstacles'][0]
-    frm = open(os.path.join(run_dir, 'ctrack_run.txt')).read().split()[0]
+    frm = open(os.path.join(run_dir, 'scenario_run.txt')).read().split()[0]
     a = np.genfromtxt(os.path.join(run_dir, 'airsim_odom.csv'), delimiter=',', names=True)
     st = np.genfromtxt(os.path.join(run_dir, 'status.csv'), delimiter=',', names=True)
     t_arm = st['t'][np.argmax(st['arming'] == 2)]
@@ -299,7 +299,7 @@ def eval_runs(run_dirs, lay):
     import pickle
     mo = lay['moving_obstacles'][0]
     for run_dir in run_dirs:
-        frm = open(os.path.join(run_dir, 'ctrack_run.txt')).read().split()[0]
+        frm = open(os.path.join(run_dir, 'scenario_run.txt')).read().split()[0]
         fx, fy = lay['waypoints'][frm] if frm in lay['waypoints'] else map(float, frm.split(','))
         recs = []
         with open(os.path.join(run_dir, 'super_speed_guard_scans.pkl'), 'rb') as f:
@@ -336,12 +336,12 @@ def leaks(run_dirs, lay):
     GuardCore, /cloud_static rebuilt (moving_mask, the 25 m range and the height floor of a held
     flight: 0.5 m under the centre) and the cart's returns in it counted - before the guard first
     called the cart moving (it is parked there: fine) and after (a trail SUPER never clears:
-    ctrack_s900_f / g). Exit status 1 when any run leaks after the verdict."""
+    run s900_f / g). Exit status 1 when any run leaks after the verdict."""
     import pickle
     mo = lay['moving_obstacles'][0]
     bad = 0
     for run_dir in run_dirs:
-        f = open(os.path.join(run_dir, 'ctrack_run.txt')).read().split()
+        f = open(os.path.join(run_dir, 'scenario_run.txt')).read().split()
         frm, alt = f[0], float(f[6])
         fx, fy = lay['waypoints'][frm] if frm in lay['waypoints'] else map(float, frm.split(','))
         min_z = alt - 0.44 - 0.5

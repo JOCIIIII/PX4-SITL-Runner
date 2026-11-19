@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""How well the lidar saw the poles in a C-Track run: per lidar scan of the avoidance node's dump
+"""How well the lidar saw the poles in a test map run: per lidar scan of the avoidance node's dump
 (noclimb_ca_dump.npz), the returns within --r of each pole's axis, against the distance to the pole, whether it was
 ahead, and the vehicle's pitch. Answers "is a thin (20 mm) pole seen, and does it vanish when the nose comes up?".
 
-usage: ctrack_pole_hits.py RUN_DIR [--layout LAYOUT] [--r 0.15]
-  the dump's points and pose are PX4 local ENU from the take-off point FROM (ctrack_run.txt): X = fx + x, Y = fy - y
+usage: scenario_pole_hits.py RUN_DIR [--layout LAYOUT] [--r 0.15]
+  the dump's points and pose are PX4 local ENU from the take-off point FROM (scenario_run.txt): X = fx + x, Y = fy - y
 """
 import argparse
 import json
@@ -22,9 +22,9 @@ def main():
     ap.add_argument('--r', type=float, default=0.15, help='a return within this of the pole axis is a pole hit [m]')
     ap.add_argument('--ahead-deg', type=float, default=30.0)
     a = ap.parse_args()
-    run = open(os.path.join(a.run_dir, 'ctrack_run.txt')).read().split()
+    run = open(os.path.join(a.run_dir, 'scenario_run.txt')).read().split()
     if a.layout is None:
-        from ctrack_clearance import DEF_LAYOUT
+        from scenario_clearance import DEF_LAYOUT
         a.layout = DEF_LAYOUT
     lay = json.load(open(a.layout))
     wps = lay['waypoints']

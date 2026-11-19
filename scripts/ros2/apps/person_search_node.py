@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Person search: while a search mission flies (llm_mission_node.py task=search, /search/enable), the camera
 'search_cam' (AirSim, scripts/dev/unreal_settings/*_cam.json) is read a few times a second, YOLOX finds people
-(tools/person_detector.py), and each image's camera pose puts them on the ground (NED = the C-Track layout X, Y).
+(tools/person_detector.py), and each image's camera pose puts them on the ground (NED = the test map layout X, Y).
 A person seen in confirm_n frames within confirm_s s, away from the ones already reported, is inspected:
 
   /flight_driver/pause true -> the vehicle holds, then moves (/flight_driver/hold_at) to where the person is in the

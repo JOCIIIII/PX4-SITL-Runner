@@ -1,7 +1,7 @@
 #!/bin/bash
 # PILS onboard side: run the ROS2 apps on the companion computer (Jetson) against the simulator PC.
 # The onboard computer reaches the simulation only through two links, exactly as on the vehicle:
-#   uXRCE-DDS UDP 8888  PX4 (ctrack-sitl on the PC) -> MicroXRCEAgent here
+#   uXRCE-DDS UDP 8888  PX4 (scenario-sitl on the PC) -> MicroXRCEAgent here
 #   AirSim RPC 41451    the AirSim ROS2 bridge here -> Unreal on the PC (lidar, simulator pose)
 # Everything else - agent, bridge, lidar adapter, the app (noclimb_ca, super_pf, ...), the flight
 # recorder - runs here, in one container on the host network, from the same scripts as SILS
@@ -12,7 +12,7 @@
 #
 # env:
 #   AIRSIM_IP        the simulator PC (its LAN or Tailscale address; 127.0.0.1 = loopback test on the PC)
-#   ROS_DOMAIN_ID    must match the PC's ctrack-sitl (PX4 uses it as its DDS domain; default 0)
+#   ROS_DOMAIN_ID    must match the PC's scenario-sitl (PX4 uses it as its DDS domain; default 0)
 #   ONBOARD_WS       host dir mounted at /home/user/workspace/ros2: ros2_ws built ON THIS MACHINE (colcon keeps
 #                    absolute paths, so it must have been built at that same container path), scripts/, logs/
 #                    (default ~/Documents/A4VAI-SITL/ROS2)

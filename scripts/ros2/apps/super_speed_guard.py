@@ -2,8 +2,8 @@
 """Speed guard for the SUPER -> PathFollowing pipeline: brake for what moves into the path.
 
 SUPER plans on a static map. When an obstacle moves into space SUPER has already planned
-through, every replan fails and SUPER keeps flying the committed trajectory. In ctrack_123_d
-the C-Track RC cart's panel (1 m/s across the lane) did this: the X8 hit it at 3-5 m/s, the
+through, every replan fails and SUPER keeps flying the committed trajectory. In run 123_d
+the RC cart's panel on the test map (1 m/s across the lane) did this: the X8 hit it at 3-5 m/s, the
 spin broke PX4's estimate and the flight ended upside down. This node sits between the
 bridge's /desired_speed and PathFollowing and caps the speed so the vehicle can still stop
 before what blocks the path ahead:
@@ -21,7 +21,7 @@ cells now clearly better than unmoved (rigid motion, not a shrinking view of a s
 it stays moving for moving_hold_s after the last such fit. The first
 version flagged single returns with no return near them a second earlier - the cart's panel
 moves along its own length, so all but its front 0.4 m sat on its own old footprint and the
-cart was seen 7 m ahead, on and off (ctrack_123_h: hit at 2.6 m/s).
+cart was seen 7 m ahead, on and off (run 123_h: hit at 2.6 m/s).
 
 A cluster blocks the path at arc length s (from the vehicle along the path) when
   - static: one of its returns is within block_radius_m of the path (X8 0.8 m: prop tips
@@ -38,16 +38,16 @@ clear_margin_s before the object comes.
 Limit = the speed that still stops standoff_m before the closest block, braking at
 brake_accel after delay_s:  v * delay + v^2 / (2 a) <= s - standoff. Above it the command is 0
 until the vehicle has stopped (GuardCore.command). PathFollowing guid 0 follows a /desired_speed
-drop at ~3.2 m/s^2 after ~0.5 s (ctrack_sp_c/d); 2.5 m/s^2 after 0.6 s leaves room for it: in the
+drop at ~3.2 m/s^2 after ~0.5 s (run sp_c/d); 2.5 m/s^2 after 0.6 s leaves room for it: in the
 closed-loop sim (2.7 m/s^2 after 0.5 s) 3 m/s^2 after 0.5 s stopped 1.1 m past the standoff.
 Mover regions: the cells a confirmed mover covered, and those along its velocity for
 mover_region_ahead_s, are remembered mover_region_hold_s (30 s; the cart shuttles in 29 s): their
 returns never reach SUPER, and a cluster in one counts as moving with the region's velocity even
 when its own track has lapsed (a 2 cm panel seen edge-on: 1-6 returns; its trail stopped the
-vehicle on the cart's track in ctrack_s900_g and the cart's return trip hit it).
+vehicle on the cart's track in run s900_g and the cart's return trip hit it).
 The closest block is held for block_hold_s, a moving track out of sight is carried along its
 velocity for coast_s (braking pitches the lidar's forward rays up: the cart vanished for 1 s in
-ctrack_123_i), a static block needs static_seen_min scans in a row (violent pitching lifts
+run 123_i), a static block needs static_seen_min scans in a row (violent pitching lifts
 mis-registered ground returns into the band for single scans), and the brake is released only
 after the path has been clear for release_s; stopped for a moving block, the vehicle waits there.
 Only the latest scan is used, so a moving obstacle's trail does not hold the vehicle after it
@@ -56,7 +56,7 @@ has passed; static obstacles stay SUPER's job.
 static_cloud_topic (optional): /cloud (or static_cloud_input: the lidar adapter's tilt-gated scans)
 republished without the returns of moving objects and below static_cloud_min_z, for
 SUPER - its map (raycasting off) never clears a cell, so a moving object leaves a wall of its
-past positions that SUPER routes round (ctrack_123_l: along the cart's lane to where it turns) -
+past positions that SUPER routes round (run 123_l: along the cart's lane to where it turns) -
 and without returns beyond static_cloud_max_range_m (25 m; mis-registered far ground returns
 stay in that map as obstacles for good).
 dump_path (optional): every scan's band returns + pose + path are pickled there, one record
@@ -104,7 +104,7 @@ class Track:
 
     def predicted(self, t, moving):
         """where to look for it: the median of its last 3 centroids (one off centroid from a few
-        sparse returns broke the cart's track in ctrack_123_m), moved on when it is moving"""
+        sparse returns broke the cart's track in run 123_m), moved on when it is moving"""
         h = np.array(list(self.hist)[-3:])[:, 1:] if self.hist else np.zeros((1, 2))
         return np.median(h, axis=0) + (self.v * (t - self.last_t) if moving else 0.0)
 
@@ -133,12 +133,12 @@ class GuardCore:
         # mover regions: the cells a confirmed mover covered (and those along its velocity for
         # region_ahead seconds), one cell dilated, kept region_hold seconds with its velocity.
         # A 2 cm panel edge-on drops to 1-6 returns, its track lapses within 1.5 s and its returns
-        # reached SUPER: a trail across the lane in a map that never clears (ctrack_s900_f / g,
+        # reached SUPER: a trail across the lane in a map that never clears (run s900_f / g,
         # the vehicle stopped on the cart's track and the cart's return trip hit it). The cart's
         # shuttle period is 29 s.
         self.region_hold, self.region_ahead = region_hold, region_ahead
         # a fit counts only with min_moving_points returns: 1-3 returns of the balloon 17 m behind
-        # the vehicle jittered into a 0.6 m/s 'mover' (replay of ctrack_s900_e); and the region
+        # the vehicle jittered into a 0.6 m/s 'mover' (replay of run s900_e); and the region
         # reaches ahead only of a mover that has gone region_ahead_after_m since its verdict
         self.min_pts_moving, self.ahead_after = min_moving_points, region_ahead_after_m
         self.region = {}                 # cell key -> (expiry, vx, vy)
@@ -194,7 +194,7 @@ class GuardCore:
         tr.fits.append(False)
         h = np.array(tr.hist)
         # straight-line fit, refitted without outliers: at 10-15 m a few sparse returns put the
-        # centroid 0.5-1.2 m off for a scan, which failed every fit of the cart in ctrack_123_m
+        # centroid 0.5-1.2 m off for a scan, which failed every fit of the cart in run 123_m
         inl = np.ones(len(h), dtype=bool)
         for _ in range(2):
             tm = h[inl, 0].mean()
@@ -214,7 +214,7 @@ class GuardCore:
             return
         # rigid motion: the oldest inlier cells moved by v dt must cover the new ones clearly
         # better than unmoved. A centroid also walks when the visible part of a static object
-        # shrinks (a wall end-on as the vehicle comes alongside: 1.2 m/s, replay of ctrack_123_e) -
+        # shrinks (a wall end-on as the vehicle comes alongside: 1.2 m/s, replay of run 123_e) -
         # the new cells are then a subset of the old ones either way.
         t_first = float(h[inl, 0][0])
         old = next((c for tc, c in tr.cells if tc >= t_first - 1e-6), tr.cells[0][1])
@@ -224,7 +224,7 @@ class GuardCore:
             return
         tr.fits[-1] = True
         # a new track (just come into view: its visible part still changes) or a lone fit (sparse
-        # returns at 15 m: a wall 2-3 rings tall wandered 0.9 m in 0.6 s, ctrack_123_k) is not
+        # returns at 15 m: a wall 2-3 rings tall wandered 0.9 m in 0.6 s, run 123_k) is not
         # enough: 3 of the last 4 fits
         if t - tr.born < self.min_age or sum(tr.fits) < self.fits_in_row:
             return
@@ -292,7 +292,7 @@ class GuardCore:
         clusters = self._clusters(xyb) if len(xyb) else []
         # centroid of the occupied cells, not of the returns: the near end of a wall gets more
         # returns as the vehicle closes in, which walked the return centroid toward the vehicle
-        # at up to 1.2 m/s (replay of ctrack_123_e)
+        # at up to 1.2 m/s (replay of run 123_e)
         cells = [np.unique(np.floor(c / self.cell).astype(np.int64), axis=0) for c in clusters]
         cents = np.array([(k.mean(axis=0) + 0.5) * self.cell for k in cells]).reshape(-1, 2)
         # only a cluster with all its returns in range and at most max_moving_extent across can be
@@ -301,7 +301,7 @@ class GuardCore:
                     or np.hypot(*np.ptp(c, axis=0)) > self.max_extent) for c in clusters]
         # greedy nearest association to the live tracks (a moving one at its predicted place; it
         # is kept coast seconds out of sight: braking pitches the lidar's forward rays up and the
-        # cart's panel vanished for 1 s - its track was dropped and the brake released, ctrack_123_i)
+        # cart's panel vanished for 1 s - its track was dropped and the brake released, run 123_i)
         self.tracks = [tr for tr in self.tracks
                        if t - tr.last_t <= (self.coast if tr.moving_until >= tr.last_t else self.track_drop)]
         owner = [None] * len(clusters)
@@ -425,7 +425,7 @@ class GuardCore:
         lim = self.limit(t, pos, speed, max(v_eff, raw))
         if lim is None:
             # released once the path has been clear for `release` (the cart dropped out of sight
-            # for single scans while braking: stop-and-go, ctrack_123_i)
+            # for single scans while braking: stop-and-go, run 123_i)
             if self.braking:
                 self.clear_since = t if self.clear_since is None else self.clear_since
                 self.braking = t - self.clear_since < self.release
@@ -475,21 +475,21 @@ def make_node():
                 region_ahead=float(p('mover_region_ahead_s', 10.0)))
             # the scans without moving objects' returns, for SUPER: its map (raycasting off) never
             # clears a cell, so the cart's track stayed a wall across the lane and SUPER led the
-            # vehicle round its end - where the cart turns (ctrack_123_l: 1.1 m from the panel).
+            # vehicle round its end - where the cart turns (run 123_l: 1.1 m from the panel).
             # Moving objects are this node's job. '' = off.
             self.static_topic = str(p('static_cloud_topic', ''))
             self.static_range = float(p('static_cloud_max_range_m', 25.0))
             # Scans shot while the vehicle tilts hard are mis-registered (ground ~1 m up, phantoms
-            # SUPER never clears: ctrack_123_j); the lidar adapter gates them out of its gated_topic
+            # SUPER never clears: run 123_j); the lidar adapter gates them out of its gated_topic
             # by each scan's own sweep. The guard tracks with every scan on /cloud - gaps from
-            # dropping them there kept restarting the RC cart's track (ctrack_s900_c).
+            # dropping them there kept restarting the RC cart's track (run s900_c).
             # static_cloud_input: take /cloud_static from this topic instead of /cloud - the lidar
             # adapter's gated_topic (an odom-based gate here saw the attitude 0.1-0.2 s late and let
-            # mis-registered ground through: ctrack_s900_d stalled on it). '' = from /cloud.
+            # mis-registered ground through: run s900_d stalled on it). '' = from /cloud.
             self.static_input = str(p('static_cloud_input', ''))
             # static_cloud_min_z: returns below this height (PX4-local z) are not passed on - at a
             # held height nothing that low can reach the vehicle, and mis-registered ground lands
-            # there (0.7-0.9 m above ground in ctrack_s900_d). Default: no limit.
+            # there (0.7-0.9 m above ground in run s900_d). Default: no limit.
             self.static_min_z = float(p('static_cloud_min_z', -1.0e9))
 
             self.static_pub = (self.create_publisher(PointCloud2, self.static_topic, qos_profile_sensor_data)
@@ -557,7 +557,7 @@ def make_node():
                 # and nothing beyond static_max_range: grazing ground returns 30-40 m out, a
                 # degree or two off in pitch while the vehicle speeds up or brakes, landed
                 # 0.5-1 m up next to the goal - SUPER never clears a cell and could not plan
-                # into it for 6 min (ctrack_123_p)
+                # into it for 6 min (run 123_p)
                 n_moving = int(drop.sum())
                 if self.static_range > 0.0:
                     far = np.ones(len(xyz), dtype=bool)
@@ -623,7 +623,7 @@ def make_node():
                 if self.n_err % 50 == 1:
                     self.get_logger().error(f'[super_speed_guard] {type(e).__name__}: {e} - STOP')
             # blind (scans arrive but are not processed - a numpy 2 incompatibility made every scan
-            # fail and the guard let the vehicle into the cart, ctrack_123_n): stop too
+            # fail and the guard let the vehicle into the cart, run 123_n): stop too
             if self.last_scan_rx is not None and self.last_scan_rx - self.last_scan_ok > 0.5:
                 out = 0.0
                 self.n_blind += 1

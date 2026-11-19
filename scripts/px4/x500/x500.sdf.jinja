@@ -290,11 +290,11 @@
       <accelerometerBiasCorrelationTime>300.0</accelerometerBiasCorrelationTime>
       <accelerometerTurnOnBiasSigma>0</accelerometerTurnOnBiasSigma>
     </plugin>
-    <!-- C-Track fan-bank wind (scripts/px4/plugins/gazebo_zone_wind_plugin.cpp): idle without its config file -->
+    <!-- Test map fan-bank wind (scripts/px4/plugins/gazebo_zone_wind_plugin.cpp): idle without its config file -->
     <plugin name='zone_wind' filename='libgazebo_zone_wind_plugin.so'>
       <linkName>base_link</linkName>
       <windPubTopic>world_wind</windPubTopic>
-      <configFile>/home/user/workspace/ctrack_zone_wind.txt</configFile>
+      <configFile>/home/user/workspace/scenario_zone_wind.txt</configFile>
     </plugin>
   </model>
 </sdf>

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Clearance of a scripts/dev/ctrack_super.sh run to the C-Track obstacles, from the layout
+"""Clearance of a scripts/dev/scenario_super.sh run to the test map's obstacles, from the layout
 (the Unreal map and the Gazebo world are both generated from it, so it is the ground truth).
 
 The vehicle is a vertical slab around its centre: from the skid bottom to the top plate
@@ -15,7 +15,7 @@ Positions: the simulator's pose (airsim_odom.csv) when recorded, else PX4's esti
 forces it); PX4's local z is relative to the vehicle centre resting on its skids, so its height
 above ground is -z + rest (x8 0.44 m).
 
-usage: ctrack_clearance.py RUN_DIR [--layout LAYOUT.json] [--radius 0.77] [--below 0.44] [--above 0.09]
+usage: scenario_clearance.py RUN_DIR [--layout LAYOUT.json] [--radius 0.77] [--below 0.44] [--above 0.09]
                            [--rest 0.44] [--estimate]
 """
 import argparse
@@ -26,16 +26,16 @@ import re
 
 import numpy as np
 
-def _ctrack_dir():
-    """CTRACK_DIR, else the installed A4VAI-Unreal (scripts/install.sh), else the developers' checkout"""
-    for d in (os.environ.get('CTRACK_DIR', ''), '~/Documents/A4VAI-SITL/A4VAI-Unreal',
+def _scenario_dir():
+    """SCENARIO_DIR, else the installed A4VAI-Unreal (scripts/install.sh), else the developers' checkout"""
+    for d in (os.environ.get('SCENARIO_DIR', ''), '~/Documents/A4VAI-SITL/A4VAI-Unreal',
               '~/Desktop/00_Project/00_A4VAI/00_Development/00_Simulator/02_InhouseSim/00_Unreal/00_Map'):
         if d and os.path.isdir(os.path.expanduser(d)):
             return os.path.expanduser(d)
     return os.path.expanduser('~/Documents/A4VAI-SITL/A4VAI-Unreal')
 
 
-DEF_LAYOUT = os.path.join(_ctrack_dir(), 'layout', 'ctrack_layout.json')
+DEF_LAYOUT = os.path.join(_scenario_dir(), 'layout', 'scenario_layout.json')
 
 
 def px4_offset(run_dir):
@@ -63,9 +63,9 @@ def to_px4_time(t, off):
 
 
 def cart_starts(run_dir):
-    """{moving obstacle: Gazebo sim time [s] it started} from the run's gzserver log (ctrack_logs/gzserver.log, where
+    """{moving obstacle: Gazebo sim time [s] it started} from the run's gzserver log (scenario_logs/gzserver.log, where
     the moving-obstacle plugin prints '[<name>_motion] started at t=...')"""
-    p = os.path.join(run_dir, 'ctrack_logs', 'gzserver.log')
+    p = os.path.join(run_dir, 'scenario_logs', 'gzserver.log')
     if not os.path.exists(p):
         return {}
     txt = re.sub(r'\x1b\[[0-9;]*m', '', open(p, errors='replace').read())
@@ -141,7 +141,7 @@ def main():
     ap.add_argument('run_dir')
     ap.add_argument('--layout', default=DEF_LAYOUT)
     # vehicle geometry (prop-tip radius, body below / above the centre, centre height at rest): by default the
-    # run's airframe (ctrack_run.txt field 9) - X8 0.77 / 0.44 / 0.09 / 0.44, X500 0.386 / 0.23 / 0.07 / 0.23.
+    # run's airframe (scenario_run.txt field 9) - X8 0.77 / 0.44 / 0.09 / 0.44, X500 0.386 / 0.23 / 0.07 / 0.23.
     # (The X8 values on X500 runs understated their margins by 0.38 m, 2026-10-16.)
     ap.add_argument('--radius', type=float, default=None)
     ap.add_argument('--below', type=float, default=None)
@@ -152,7 +152,7 @@ def main():
     ap.add_argument('--alt-tol', type=float, default=0.2)
     a = ap.parse_args()
     lay = json.load(open(a.layout))
-    run = open(os.path.join(a.run_dir, 'ctrack_run.txt')).read().split()
+    run = open(os.path.join(a.run_dir, 'scenario_run.txt')).read().split()
     frm, goal_wp = run[:2]
     airframe = run[8] if len(run) > 8 else 'x8'
     geo = {'x500': (0.386, 0.23, 0.07, 0.23)}.get(airframe, (0.77, 0.44, 0.09, 0.44))

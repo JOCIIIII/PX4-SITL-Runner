@@ -16,7 +16,7 @@
 # [0, 1], default cluster), NOCLIMB_SCAN_MEMORY (seconds of scans in the image, default 0 =
 # latest scan only, as the policy was trained; with NOCLIMB_SCAN_MEMORY_MIN the last N scans stay
 # whatever their age, up to NOCLIMB_SCAN_MEMORY_MAX s - default 1.5 - so a scan gap cannot wipe
-# the memory; C-Track 0.5 m poles: 0.4 s kept soft at >= +1.10 m), NOCLIMB_GUID (0 pursuit | 2 MPPI, see below),
+# the memory; test map 0.5 m poles: 0.4 s kept soft at >= +1.10 m), NOCLIMB_GUID (0 pursuit | 2 MPPI, see below),
 # NOCLIMB_CMD_TAU (first-order smoothing of the policy's command [s], default 0 = off),
 # NOCLIMB_CMD_ACCEL_MAX / NOCLIMB_CMD_JERK_MAX (caps on the smoothed command's acceleration [m/s^2] and
 # its rate [m/s^3] - tilt ~ atan(a/g), tilt rate ~ jerk/g; default 0 = off; speed decreases bypass them),
@@ -145,7 +145,7 @@ echo "[$(basename "$0")] ${POLICY}: path from the engage point -> (${GOAL_X}, ${
 
 # 1) PX4 pose -> /odom (ENU); AirSim lidar -> /cloud (world ENU, AirSim-registered, de-skewed)
 #    NOCLIMB_MAX_TILT_RATE [rad/s] (default 0 = off, as flown in the forest): scans taken while
-#    the body tilts faster are dropped (super_pf uses 0.8: near the ground, as on C-Track at
+#    the body tilts faster are dropped (super_pf uses 0.8: near the ground, as on the test map at
 #    1.5 m, a scan registered with the lagging attitude puts the ground up as a phantom wall)
 ros2 run realgazebo_fastplanner_adapters px4_lidar_to_odom_cloud --ros-args \
     -p "px4_ns:=''" \
@@ -199,7 +199,7 @@ if [ "${SITL_AIRFRAME}" = "x8" ]; then
                                           # for a pole until ~2 m and passes it 0.6-1 m off its line - fine for the
                                           # small vehicle it learned on, not for the X8 - so only the governor's early
                                           # braking keeps the margin: corridor 1.2 put C5 0.84 m from the X8's centre
-                                          # (ctrack_big_k), corridor + braking law 0.80 m at pole height (big_l)
+                                          # (run big_k), corridor + braking law 0.80 m at pole height (big_l)
 elif [ "${SITL_AIRFRAME}" = "x500" ]; then
     # the X500 test quad (scripts/px4/x500) flies the same bundles until it has its own: the X8's
     # height/ground conventions with its own rest height (centre 0.23 m up), PathFollowing as a quad.
@@ -298,16 +298,16 @@ c.update(m['policies'].get('${POLICY}', {}).get('overrides', {})); print(c.get('
         GPS_ARGS=""
         python3 ${APP_DIR}/llm_mission_node.py --ros-args \
             -p llm_url:=${LLM_URL:-http://127.0.0.1:11434} -p llm_model:=${LLM_MODEL:-gemma4:12b} \
-            -p places:=${LLM_PLACES:-${APP_DIR}/llm_places_ctrack.json} -p origin_xy:="${LLM_ORIGIN_XY:-0,0}" \
+            -p places:=${LLM_PLACES:-${APP_DIR}/llm_places_scenario.json} -p origin_xy:="${LLM_ORIGIN_XY:-0,0}" \
             -p flight_alt:=$(printf '%.2f' ${LLM_FLIGHT_ALT:-${ALT}}) -p v_max:=$(printf '%.2f' ${V_MAX}) \
             -p search_lane_m:=$(printf '%.1f' ${SEARCH_LANE_M:-10}) -p search_speed:=$(printf '%.1f' ${SEARCH_SPEED:-2}) \
             -p log_dir:=${LOGS} 2>&1 | tee ${LOGS}/llm_mission.log &
-        # person search (task=search): YOLOX on the AirSim camera search_cam (Unreal with CTRACK_CAMERA=1 settings)
+        # person search (task=search): YOLOX on the AirSim camera search_cam (Unreal with SCENARIO_CAMERA=1 settings)
         SEARCH_MODEL=${SEARCH_MODEL:-${WORKSPACE_DIR}/models/yolox_s.onnx}
         if [ -f "${SEARCH_MODEL}" ]; then
             python3 ${APP_DIR}/person_search_node.py --ros-args -p model:=${SEARCH_MODEL} \
                 -p llm_url:=${LLM_URL:-http://127.0.0.1:11434} -p llm_model:=${LLM_MODEL:-gemma4:12b} \
-                -p places:=${LLM_PLACES:-${APP_DIR}/llm_places_ctrack.json} -p origin_xy:="${LLM_ORIGIN_XY:-0,0}" \
+                -p places:=${LLM_PLACES:-${APP_DIR}/llm_places_scenario.json} -p origin_xy:="${LLM_ORIGIN_XY:-0,0}" \
                 -p log_dir:=${LOGS} 2>&1 | tee ${LOGS}/person_search.log &
         fi
     fi

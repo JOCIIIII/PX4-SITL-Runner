@@ -44,9 +44,9 @@ export OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2 MKL_NUM_THREADS=2 NUMEXPR_NUM_TH
 
 # 1) AirSim lidar + PX4 pose -> /odom + /cloud (settings.json: lidar at Z=-0.3 NED, no tilt).
 #    Scans shot while tilting > 0.8 rad/s must not reach SUPER: mis-registered, they put phantom
-#    obstacles into its map in hard brakes (ctrack_123_j). With the speed guard on they stay on
+#    obstacles into its map in hard brakes (run 123_j). With the speed guard on they stay on
 #    /cloud for the guard's tracking (dropped there they left gaps that restarted the RC cart's
-#    track: ctrack_s900_c) and only the others go to /cloud_gated -> the guard -> SUPER; without
+#    track: run s900_c) and only the others go to /cloud_gated -> the guard -> SUPER; without
 #    the guard the adapter drops them from /cloud.
 ADAPTER_GATED=$([ "${SUPER_PF_SPEED_GUARD}" = "1" ] && echo "-p gated_topic:=/cloud_gated")
 ros2 run realgazebo_fastplanner_adapters px4_lidar_to_odom_cloud --ros-args \
@@ -67,7 +67,7 @@ SUPER_CONFIG=$([ "${SITL_AIRFRAME}" = "x8" ] && echo static_realgazebo_x8.yaml |
 #    SUPER opens <its source dir>/config/<config_name>, so the name is relative to that.
 #    SUPER_PF_VIRTUAL_GROUND / SUPER_PF_VIRTUAL_CEIL (optional) replace the virtual ground /
 #    ceiling in that copy: the configs keep the trajectory in a band for the 5 m forest flights
-#    (x8: about 4-8.8 m), so a low flight (C-Track at 1.5 m) needs its own band.
+#    (x8: about 4-8.8 m), so a low flight (the test map at 1.5 m) needs its own band.
 sed -E "s/^(\s*max_vel:\s*)[0-9.]+/\1${SUPER_PF_MAX_SPEED:-7.0}/" \
     ${ROS2_WS}/src/super/super_planner/config/${SUPER_CONFIG} > ${LOGS}/super_config.yaml
 if [ -n "${SUPER_PF_VIRTUAL_GROUND}" ]; then
@@ -76,7 +76,7 @@ fi
 if [ -n "${SUPER_PF_VIRTUAL_CEIL}" ]; then
     sed -i -E "s/^(\s*virtual_ceil_height:\s*)[-0-9.]+/\1${SUPER_PF_VIRTUAL_CEIL}/" ${LOGS}/super_config.yaml
 fi
-#    SUPER_PF_INFLATION_STEP (optional): rog_map inflation_step in that copy (see ctrack_super.sh)
+#    SUPER_PF_INFLATION_STEP (optional): rog_map inflation_step in that copy (see scenario_super.sh)
 if [ -n "${SUPER_PF_INFLATION_STEP}" ]; then
     sed -i -E "s/^(\s*inflation_step:\s*)[0-9]+/\1${SUPER_PF_INFLATION_STEP}/" ${LOGS}/super_config.yaml
 fi
@@ -97,13 +97,13 @@ ros2 run super_planner fsm_node --ros-args \
 # 3) SUPER poly traj -> PF waypoints (also publishes pp/ca heartbeats)
 #    SUPER_PF_SPEED_GUARD=1: the bridge's /desired_speed goes through super_speed_guard.py, which
 #    brakes for a lidar return that blocks the path ahead - SUPER's static map does not stop for
-#    an obstacle moving into its committed trajectory (ctrack_123_d: RC cart). Prop-tip radius:
+#    an obstacle moving into its committed trajectory (run 123_d: RC cart). Prop-tip radius:
 #    SUPER_PF_GUARD_RADIUS (x8 0.8 m; iris 0.4 m, untested).
 SPEED_TOPIC_ARG=$([ "${SUPER_PF_SPEED_GUARD}" = "1" ] && echo "-r /desired_speed:=/desired_speed_raw")
 #    SUPER_PF_HOLD_Z (optional): every waypoint to PF at this PX4-local height (ENU z) - the
-#    flight height stays fixed while SUPER dodges sideways (C-Track 1.5 m; poly_to_waypoints hold_z)
+#    flight height stays fixed while SUPER dodges sideways (test map 1.5 m; poly_to_waypoints hold_z)
 HOLD_ARG=$([ -n "${SUPER_PF_HOLD_Z}" ] && printf -- '-p hold_z:=%.3f' "${SUPER_PF_HOLD_Z}")
-#    CA_PREFIX_PATH (the integrated test, scripts/dev/ctrack_test.sh all): the planned prefix is flown first -
+#    CA_PREFIX_PATH (the integrated test, scripts/dev/scenario_test.sh all): the planned prefix is flown first -
 #    the chain's path / speed go to /ca/* and prefix_relay_node.py hands them to the follower after the prefix.
 PREFIX_WP_ARG=""; PREFIX_SPEED_ARG=""
 if [ -n "${CA_PREFIX_PATH:-}" ]; then
@@ -118,7 +118,7 @@ ros2 run super_pf_bridge poly_to_waypoints --ros-args -p speed_max:=${SUPER_PF_M
     2>&1 | tee ${LOGS}/super_pf_bridge.log &
 if [ "${SUPER_PF_SPEED_GUARD}" = "1" ]; then
     GUARD_R=${SUPER_PF_GUARD_RADIUS:-$([ "${SITL_AIRFRAME}" = "x8" ] && echo 0.8 || echo 0.4)}
-    #    SUPER_PF_STATIC_MIN_Z (optional): nothing below this PX4-local height reaches SUPER (C-Track at
+    #    SUPER_PF_STATIC_MIN_Z (optional): nothing below this PX4-local height reaches SUPER (the test map at
     #    a held 1.5 m: 1.0 m above ground - mis-registered ground lands lower, every obstacle is taller)
     STATIC_MIN_Z_ARG=$([ -n "${SUPER_PF_STATIC_MIN_Z}" ] && printf -- '-p static_cloud_min_z:=%.3f' "${SUPER_PF_STATIC_MIN_Z}")
     rm -f ${LOGS}/super_speed_guard_scans.pkl      # its inputs, for scripts/dev/speed_guard_sim.py
@@ -142,7 +142,7 @@ fi
 # PathFollowing vehicle model follows the simulated airframe (envs/gazebo-classic.env
 # SITL_AIRFRAME, copied into ros2.env by run.sh): x8 -> octo.yaml (2), iris -> quad.yaml (1)
 PF_VEHICLE_TYPE=$([ "${SITL_AIRFRAME}" = "x8" ] && echo 2 || echo 1)
-#    SUPER_PF_GUID=2 (scripts/dev/ctrack_test.sh): MPPI with the avoidance config sim_ca_mppi(_x8).yaml - its
+#    SUPER_PF_GUID=2 (scripts/dev/scenario_test.sh): MPPI with the avoidance config sim_ca_mppi(_x8).yaml - its
 #    mppi_speed_transition engages MPPI on this replanned path once the vehicle moves (the note above predates it);
 #    default guid 0 as above.
 if [ "${SUPER_PF_GUID:-0}" = 2 ]; then
@@ -178,7 +178,7 @@ ros2 run flight_manager flight_manager --ros-args ${FM_ALT_ARG} \
     2>&1 | tee ${LOGS}/flight_manager.log &
 
 # 6) Goal feeder: wait for takeoff, then stream goals_super.csv to SUPER + bridge
-#    Several goals (the legs of scripts/dev/ctrack_test.sh pf-ca / all): the next one goes out 5 m before each -
+#    Several goals (the legs of scripts/dev/scenario_test.sh pf-ca / all): the next one goes out 5 m before each -
 #    at 2 m PathFollowing reached the end of SUPER's trajectory to it before the next one arrived, and its
 #    "PF done" far from the final goal made flight_manager land in place.
 NGOALS=$(grep -cE '^ *-?[0-9.]+ *,' ${ROS2_WS}/src/realgazebo_fastplanner_adapters/config/goals_super_far.csv)

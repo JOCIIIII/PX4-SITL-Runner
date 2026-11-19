@@ -9,29 +9,29 @@
 #           WP3 -> WP5 -> WP6 -> GOAL
 #   all     integrated: scenario D - the Hybrid PP plan flown by PathFollowing to WP3, then TEST_CA to GOAL
 #   Path following is PathFollowing's MPPI guidance throughout (sim_ca_mppi(_x8).yaml under the avoidance).
-# usage: scripts/dev/ctrack_test.sh KIND NAME [PROFILE]          (or: ./scripts/ctrack.sh test KIND NAME [PROFILE])
+# usage: scripts/dev/scenario_test.sh KIND NAME [PROFILE]        (or: ./scripts/scenario.sh test KIND NAME [PROFILE])
 #   TEST_CA  inha (default) = the learned policy of PROFILE (scripts/ros2/apps/noclimb_ca.sh)
 #            jbnu           = T1000 Control 445 (CA unit: t1000.sh; with PathFollowing: t1000_pf.sh)
 #            super          = SUPER (super_pf.sh, PathFollowing in MPPI: SUPER_PF_GUID=2)
 #   PROFILE  flight profile (default x8_5sm2): the airframe and, for inha, the policy
 #   TEST_SPEED (5 m/s), TEST_WIND (fan wind, 5 m/s; 0 = off), TEST_ALT (1.7 m), TEST_TIMEOUT (600 s);
-#   the DEMO_* knobs of scripts/dev/ctrack_demo.sh pass through.
+#   the DEMO_* knobs of scripts/dev/scenario_demo.sh pass through.
 # Result: test_runs/NAME/test_summary.txt with PASS / FAIL against these criteria (the RFP items, 2026-11-05):
 #   pp          path found, length <= 120 % of the shortest, planning <= 1.0 s (the RFP measures this on the Jetson)
 #   pf, pp-pf   landed at the end, cross-track error p95 <= 1.0 m and max <= 3.0 m
 #   ca, pf-ca   landed within 2 m of the goal, every obstacle margin > 0 (no contact)
 #   all         both: the planned prefix within p95 1.0 / max 3.0 m, no contact, landed within 2 m of the goal
-# Every run is also appended to test_runs/test_matrix.csv; "ctrack_test.sh table" shows the latest of each cell.
+# Every run is also appended to test_runs/test_matrix.csv; "scenario_test.sh table" shows the latest of each cell.
 set -u
-# "table": the latest result of every cell (scripts/dev/ctrack_test_table.py)
-[ "${1:-}" = table ] && exec python3 "$(dirname "$(readlink -f "$0")")/ctrack_test_table.py"
-KIND=${1:?usage: ctrack_test.sh pp|pf|ca|pp-pf|pf-ca|all NAME [PROFILE] | table}
-NAME=${2:?usage: ctrack_test.sh KIND NAME [PROFILE]}
+# "table": the latest result of every cell (scripts/dev/scenario_test_table.py)
+[ "${1:-}" = table ] && exec python3 "$(dirname "$(readlink -f "$0")")/scenario_test_table.py"
+KIND=${1:?usage: scenario_test.sh pp|pf|ca|pp-pf|pf-ca|all NAME [PROFILE] | table}
+NAME=${2:?usage: scenario_test.sh KIND NAME [PROFILE]}
 PROFILE=${3:-x8_5sm2}
 REPO=$(dirname $(dirname $(dirname $(readlink -f "$0"))))
 W=~/Documents/A4VAI-SITL
 OUT=$W/ROS2/test_runs/$NAME
-DEMO=$REPO/scripts/dev/ctrack_demo.sh
+DEMO=$REPO/scripts/dev/scenario_demo.sh
 PFW=mppi; CA=${TEST_CA:-inha}
 case "$CA" in inha|jbnu|super) ;; *) echo "[test] TEST_CA: inha | jbnu | super"; exit 1 ;; esac
 export DEMO_SPEED=${TEST_SPEED:-${DEMO_SPEED:-5}} DEMO_WIND=${TEST_WIND:-${DEMO_WIND:-5}}

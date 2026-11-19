@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Hybrid PP (hybrid-learning-path-planning 0.3.2: U-Net + Watershed + CUDA visibility graph + Dijkstra) on the
-C-Track field, for the final demonstration scenarios A (path planning around the pre-known tents) and D (the
+test map, for the final demonstration scenarios A (path planning around the pre-known tents) and D (the
 integrated flight, planned over Start -> WP1..WP4 -> Goal).
 
 The height map comes straight from the layout (flat ground + the obstacles whose names match --known, default the
@@ -11,10 +11,10 @@ its total_ms is the on-board planning time the RFP item asks about (<= 1.0 s); t
 shortest path among the same obstacles inflated by the same radius (a visibility graph), the "global optimum" of
 the 120 % item.
 
-Runs in the ROS2 image with the GPU and the libraries scripts/dev/ctrack_pp.sh mounts (PYTHONPATH=/pp_libs):
-    scripts/dev/ctrack_pp.sh OUT_DIR START,WP1            # names from the layout or X,Y
-    scripts/dev/ctrack_pp.sh OUT_DIR START,WP2,WP3,WP5,WP6,GOAL --alt 1.7
-Outputs in OUT_DIR: pp_path.csv (layout X,Y,h - CTRACK_PATH for scripts/dev/ctrack_super.sh CTRACK_APP=mission),
+Runs in the ROS2 image with the GPU and the libraries scripts/dev/scenario_pp.sh mounts (PYTHONPATH=/pp_libs):
+    scripts/dev/scenario_pp.sh OUT_DIR START,WP1          # names from the layout or X,Y
+    scripts/dev/scenario_pp.sh OUT_DIR START,WP2,WP3,WP5,WP6,GOAL --alt 1.7
+Outputs in OUT_DIR: pp_path.csv (layout X,Y,h - SCENARIO_PATH for scripts/dev/scenario_super.sh SCENARIO_APP=mission),
 pp_result.json (per leg: success, planning ms, length, reference length, ratio), pp_route.png, pp_config.json,
 heightmap.npy.
 """
@@ -30,8 +30,8 @@ import time
 import numpy as np
 
 
-def _ctrack_dir():
-    for d in (os.environ.get('CTRACK_DIR', ''), '~/Documents/A4VAI-SITL/A4VAI-Unreal',
+def _scenario_dir():
+    for d in (os.environ.get('SCENARIO_DIR', ''), '~/Documents/A4VAI-SITL/A4VAI-Unreal',
               '~/Desktop/00_Project/00_A4VAI/00_Development/00_Simulator/02_InhouseSim/00_Unreal/00_Map'):
         if d and os.path.isdir(os.path.expanduser(d)):
             return os.path.expanduser(d)
@@ -122,7 +122,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('out')
     ap.add_argument('points', help='comma-separated layout waypoint names or X:Y pairs, e.g. START,WP1 or 0:0,60:0')
-    ap.add_argument('--layout', default=os.path.join(_ctrack_dir(), 'layout', 'ctrack_layout.json'))
+    ap.add_argument('--layout', default=os.path.join(_scenario_dir(), 'layout', 'scenario_layout.json'))
     ap.add_argument('--alt', type=float, default=1.7, help='flight height above the ground [m] (= the test map runs\' path height)')
     ap.add_argument('--res', type=float, default=0.25, help='height map resolution [m/px]')
     ap.add_argument('--radius', type=float, default=1.2, help='vehicle horizontal radius [m] (X8 prop tips 0.77 + margin; 10-02 PP_RADIUS 1.2)')
@@ -196,7 +196,7 @@ def main():
     t0 = time.perf_counter()
     planner.plan(hm, (*to_px(*w0), a.alt), (*to_px(*w1), a.alt))
     warmup_ms = round((time.perf_counter() - t0) * 1000.0, 1)
-    print(f'[ctrack_pp] warm-up plan {warmup_ms} ms (first call)', flush=True)
+    print(f'[scenario_pp] warm-up plan {warmup_ms} ms (first call)', flush=True)
     legs, merged = [], []
     for (na, pa), (nb, pb) in zip(pts, pts[1:]):
         ca, ra = to_px(*pa); cb, rb = to_px(*pb)
@@ -218,7 +218,7 @@ def main():
         if res.success and leg['reference_m']:
             leg['ratio'] = round(leg['length_m'] / leg['reference_m'], 3)
         legs.append(leg)
-        print(f"[ctrack_pp] {na} -> {nb}: {'ok' if res.success else 'FAILED ' + str(res.failure_reason)}, "
+        print(f"[scenario_pp] {na} -> {nb}: {'ok' if res.success else 'FAILED ' + str(res.failure_reason)}, "
               f"{leg['planning_ms']} ms, {leg.get('length_m', '-')} m (reference {leg['reference_m']} m, "
               f"ratio {leg.get('ratio', '-')}), {len(leg.get('waypoints', []))} waypoints", flush=True)
     ok = all(l['success'] for l in legs)
@@ -263,8 +263,8 @@ def main():
                     f"max plan {summary['max_planning_ms']:.0f} ms", (8, 18), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
         cv2.imwrite(os.path.join(a.out, 'pp_route.png'), img)
     except Exception as e:                                    # the figure is optional
-        print(f'[ctrack_pp] figure skipped: {e}')
-    print(f"[ctrack_pp] {'OK' if ok else 'FAILED'}: {total:.1f} m vs reference {ref_total:.1f} m"
+        print(f'[scenario_pp] figure skipped: {e}')
+    print(f"[scenario_pp] {'OK' if ok else 'FAILED'}: {total:.1f} m vs reference {ref_total:.1f} m"
           f"{' (ratio %.3f)' % (total / ref_total) if ok and ref_total else ''}, max planning {summary['max_planning_ms']} ms -> {a.out}")
     sys.exit(0 if ok else 1)
 

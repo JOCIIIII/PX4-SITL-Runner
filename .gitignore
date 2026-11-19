@@ -11,3 +11,4 @@ docs/*
 !docs/MANUAL.md
 !docs/README-KR.md
 scripts/dev/paper_*.py
+scripts/dev/sils_record/

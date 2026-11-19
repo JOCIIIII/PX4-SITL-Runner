@@ -10,7 +10,7 @@ publishes PathFollowing's inputs (/local_waypoint_setpoint_to_PF, /desired_speed
       - the REMAINING path at 1 Hz, from the vehicle through the rest, 2 points past the end
         (a full path each time would restart PathFollowing at its first point)
       - the speed eased before each corner and braked toward the end speed
-    prefix_path "east,north;..." = metres from the take-off point, PX4 local ENU, as ctrack_super.sh's
+    prefix_path "east,north;..." = metres from the take-off point, PX4 local ENU, as scenario_super.sh's
     NOCLIMB_PREFIX_PATH, at the height altitude.
   - avoidance: within handover_radius_m of the prefix end (on its last segment), the chain's messages are forwarded
     as they come.
