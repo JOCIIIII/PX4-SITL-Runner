@@ -24,10 +24,10 @@ Lines marked `MEASURE` are set on the vehicle in the morning; the values here ar
 | `x500_5` | `x500_onnx` (`ca_x500`) | +0.95 m | **contact −0.18 m (wood wall)**, then +1.02 m |
 | `x8_3` | `x8_speed_onnx/v3` (`ca_x8_v3`) | +0.86 m | +0.82 m |
 | `x8_5` | `x8_30m_soft_onnx` (`ca_x8_30m_soft`) | +1.44 m | +1.60 m |
-| `x8_3n` | `x8_smooth_early_onnx/v3` (`ca_x8_v3`, early avoidance) - the first X8 CA flight | +1.49..+1.87 m (3 runs) | see docs/flight-test-2026-10-17.md |
+| `x8_3n` | `x8_smooth_early_onnx/v3` (`ca_x8_v3`, early avoidance) - the first X8 CA flight | +1.49..+1.87 m (3 runs) | +1.56 m (orin-nano-02) |
 | `x8_5s` | `x8_30m_soft_onnx` + re-acceleration cap 1.5 m/s² (`NOCLIMB_CMD_ACCEL_MAX`) - the least shaking X8 setup | +0.52..+1.19 m (6 runs) | +0.70 m (orin-nano-02, LAN) |
 
-Closest prop-tip clearance on C-Track WP3 → GOAL at 1.7 m, flown 2026-10-16 with `flight_driver` and these files
+Closest prop-tip clearance on the demonstration scenario test map (실증 시나리오 시험맵), WP3 → GOAL at 1.7 m, flown 2026-10-16 with `flight_driver` and these files
 (one run each, two for `x500_5` PILS). X500 5 m/s: the vehicle follows the commanded speed 0.7–0.8 s late and
 brakes late at broad walls - fly 3 m/s twice cleanly first, keep broad obstacles out of 5 m/s runs
-(`docs/real-flight-2026-10-16.md` §5).
+(from the 2026-10-16 real-flight analysis).

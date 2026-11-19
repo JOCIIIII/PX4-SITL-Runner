@@ -78,10 +78,10 @@ docker info 2>/dev/null | grep -qi "nvidia" || \
 if [ -z "${DISPLAY}" ] && [ -z "${WAYLAND_DISPLAY}" ]; then
     Fail "no display (DISPLAY/WAYLAND_DISPLAY empty) - a graphical session is mandatory"
 fi
-command -v python3 >/dev/null || Fail "python3 not found (the C-Track scripts use it)"
+command -v python3 >/dev/null || Fail "python3 not found (the test map scripts use it)"
 # a C-Track run leaves its ROS2 network (172.70.0.0/16) behind; compose cannot create sitl_network over it
 if docker network inspect ctrack-ros2 >/dev/null 2>&1; then
-    docker network rm ctrack-ros2 >/dev/null 2>&1 || Fail "a C-Track flight is running (network ctrack-ros2 in use) - ./scripts/ctrack.sh stop, then re-run"
+    docker network rm ctrack-ros2 >/dev/null 2>&1 || Fail "a test map flight is running (network ctrack-ros2 in use) - ./scripts/ctrack.sh stop, then re-run"
 fi
 command -v sha256sum >/dev/null || Fail "sha256sum not found"
 EchoBoxLine
@@ -199,8 +199,8 @@ if [ -z "$(ls ${AIRSIM_WORKSPACE}/binary/*.sh 2>/dev/null)" ]; then
 fi
 EchoBoxLine
 
-# ---- 8. C-TRACK UNREAL SIMULATOR ---------------------------------------------
-EchoGreen "[install.sh] [8/8] C-TRACK UNREAL SIMULATOR (A4VAI-Unreal ${UNREAL_REF}, packaged build)"
+# ---- 8. DEMONSTRATION SCENARIO TEST MAP (UNREAL SIMULATOR) -------------------
+EchoGreen "[install.sh] [8/8] DEMONSTRATION SCENARIO TEST MAP (실증 시나리오 시험맵) - UNREAL SIMULATOR (A4VAI-Unreal ${UNREAL_REF}, packaged build)"
 if [ ! -d ${UNREAL_DIR}/.git ]; then
     # only what the packaged build needs next to it (Gazebo entry/world, layouts, settings, run_unreal.sh):
     # Content/ (the editor project, ~0.8 GB) is not checked out
@@ -239,15 +239,12 @@ if [ ! -x ${UNREAL_DIR}/packaged/A4VAISIM-Linux/A4VAISIM.sh ] || [ ! -x ${UNREAL
     tar -xzf ${ASSETS}/ctrack-gazebo-prebuilt.tar.gz -C ${UNREAL_DIR} || Fail "extracting the Gazebo binaries failed"
     rm -f ${ASSETS}/*.tar.gz
 else
-    EchoYellow "[install.sh] C-Track Unreal already installed - skipping"
+    EchoYellow "[install.sh] the test map's Unreal simulator already installed - skipping"
 fi
 EchoBoxLine
 
 # ---- SUMMARY ----------------------------------------------------------------
 EchoGreen "[install.sh] INSTALL COMPLETE."
-EchoGreen "[install.sh] fly on the C-Track field (README.md):"
+EchoGreen "[install.sh] fly on the demonstration scenario test map (실증 시나리오 시험맵, README.md section 4):"
 EchoGreen "[install.sh]   ./scripts/ctrack.sh fly x8_5s first_flight      (Unreal starts with the profile's airframe)"
-EchoGreen "[install.sh] legacy AirSim forest flows:"
-EchoGreen "[install.sh]   ./scripts/run-integrated-algorithm.sh      (SUPER + PathFollowing, collision avoidance)"
-EchoGreen "[install.sh]   ./scripts/run-pf-test.sh    (PathFollowing only)"
 EchoGreen "[install.sh] uninstall with: ./scripts/uninstall.sh"

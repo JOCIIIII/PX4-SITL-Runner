@@ -12,7 +12,7 @@ source ${BASE_DIR}/include/commonFcn.sh
 source ${BASE_DIR}/include/commonEnv.sh
 
 EchoYellow "[uninstall.sh] THIS WILL REMOVE:"
-EchoYellow "*   all SITL containers (px4-env, gz-sim, airsim-binary, ros2-env, qgc-app, ctrack-sitl) and the C-Track Unreal simulator"
+EchoYellow "*   all SITL containers (px4-env, gz-sim, airsim-binary, ros2-env, qgc-app, ctrack-sitl) and the Unreal simulator of the demonstration scenario test map (실증 시나리오 시험맵)"
 EchoYellow "*   the ${SITL_NETWORK_NAME} docker network"
 EchoYellow "*   the deployed workspace ${SITL_DEPLOY_DIR}"
 EchoYellow "    (PX4 build, ROS2 workspaces, AirSim binary - EVERYTHING under it)"

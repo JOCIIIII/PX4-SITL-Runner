@@ -1,6 +1,6 @@
 # A4VAI 2세부 SILS·PILS 시뮬레이터 (PX4-SITL-Runner)
 
-무인이동체 자율비행 시뮬레이터입니다. PX4(비행제어), Gazebo Classic(물리), Unreal C-Track 시험장(센서·환경),
+무인이동체 자율비행 시뮬레이터입니다. PX4(비행제어), Gazebo Classic(물리), Unreal 실증 시나리오 시험맵(센서·환경),
 ROS2 Humble(자율비행 알고리즘)을 도커로 묶어 이륙부터 착륙까지 자동으로 비행합니다.
 
 - **SILS**: 알고리즘을 이 PC에서 돌립니다.
@@ -38,23 +38,23 @@ cd PX4-SITL-Runner
 ./scripts/install.sh
 ```
 
-설치 단계의 세부와 예전 AirSim 숲 흐름은 [docs/MANUAL.md](docs/MANUAL.md)에 있습니다.
+설치 단계의 세부는 [docs/MANUAL.md](docs/MANUAL.md)에 있습니다.
 
-C-Track 시험장의 Unreal 패키지(약 400 MB)는 [A4VAI-Unreal 릴리스 `A4VAI-Sim-v1.0`](https://github.com/JOCIIIII/A4VAI-Unreal/releases/tag/A4VAI-Sim-v1.0)(A4VAI Sim v1.0)에서
+실증 시나리오 시험맵의 Unreal 패키지(약 400 MB)는 [A4VAI-Unreal 릴리스 `A4VAI-Sim-v1.0`](https://github.com/JOCIIIII/A4VAI-Unreal/releases/tag/A4VAI-Sim-v1.0)(A4VAI Sim v1.0)에서
 자동으로 받습니다. 인터넷이 안 되는 곳에서는 릴리스의 파일 3개를 미리 받아 `~/Downloads/A4VAI-Sim-v1.0/`에
 넣어 두면 다운로드 대신 그걸 씁니다(다른 폴더면 `UNREAL_ASSET_DIR=<폴더>`).
 
 | 파일 | 내용 |
 |---|---|
-| `A4VAISIM-Linux.tar.gz` | C-Track·Yard 시험장 패키징 빌드 A4VAI Sim v1.0 (A4VAI-Unreal d316eb2) |
+| `A4VAISIM-Linux.tar.gz` | 실증 시나리오 시험맵·Yard 맵 패키징 빌드 A4VAI Sim v1.0 (A4VAI-Unreal d316eb2) |
 | `ctrack-gazebo-prebuilt.tar.gz` | GazeboDrone + Gazebo 플러그인 |
 | `SHA256SUMS` | 두 파일의 체크섬 (설치가 확인함) |
 
 도커 이미지 → PX4 빌드(X8·X500 모델 포함) → 알고리즘 소스(`A4VAI-Algorithms-ROS2` `inhousesim-v1.0`) 빌드 →
-AirSim ROS2 브리지 빌드 → C-Track Unreal 시험장(패키징 빌드) 순서로 자동 설치합니다.
+AirSim ROS2 브리지 빌드 → 실증 시나리오 시험맵(Unreal 패키징 빌드) 순서로 자동 설치합니다.
 중간에 실패하면 **다시 실행하면 이어서** 진행합니다. 작업 폴더는 `~/Documents/A4VAI-SITL`입니다.
 
-## 4. 실행: C-Track 시험장 (SILS)
+## 4. 실행: 실증 시나리오 시험맵 (SILS)
 
 ```bash
 ./scripts/ctrack.sh profiles                 # 비행 프로필 목록
@@ -99,34 +99,18 @@ ONBOARD_IP=<Jetson 주소> ONBOARD_SSH=jetson@<Jetson 주소> ./scripts/ctrack.s
 - 같은 LAN이면 LAN 주소를, 원격(Tailscale 100.x)이면 그 주소를 씁니다. 100.x 주소면 원격 링크 모드로 자동 전환됩니다.
 - 알고리즘이나 스크립트를 고친 뒤에는 `pils_jetson_setup.sh`를 다시 실행하세요(파이썬만 바꿨으면 `PILS_SKIP_BUILD=1`).
 
-## 6. 실기체
-
-`scripts/dev/onboard_real.sh`(Jetson에서 실행)와 비행 기록 문서를 보세요.
-
-- 절차와 점검표: `docs/flight-test-2026-10-17.md`, `docs/real-flight-2026-10-16.md`
-- X500 데모 설정: `docs/handoff-x500-demo.md`
-
-## 7. 예전 AirSim 숲 환경 (v0.9 흐름)
-
-```bash
-./scripts/run-integrated-algorithm.sh   # SUPER 경로계획 + 경로추종 (Ctrl+C로 종료)
-./scripts/run-pf-test.sh                # 경로추종 단독
-```
-
-C-Track과 동시에 돌리지 마세요(둘 다 172.70.0.0/16 네트워크를 씁니다). 전환 전에 `./scripts/ctrack.sh stop`.
-
-## 8. 제거
+## 6. 제거
 
 ```bash
 ./scripts/uninstall.sh    # 컨테이너·작업공간 삭제 (도커 이미지 삭제는 선택)
 ```
 
-## 9. 문제가 생기면
+## 7. 문제가 생기면
 
 | 증상 | 조치 |
 |---|---|
 | `fly`가 "Unreal API (41451) not up" | `~/Documents/A4VAI-SITL/logs/ctrack_unreal.log` 확인. NVIDIA 드라이버·Vulkan 문제가 대부분 |
-| `Pool overlaps with other one` | `./scripts/ctrack.sh stop` (C-Track 네트워크 정리) 후 다시 실행 |
+| `Pool overlaps with other one` | `./scripts/ctrack.sh stop` (시뮬레이터 네트워크 정리) 후 다시 실행 |
 | 비행 결과가 `airsim_frozen` | Gazebo→Unreal 위치 전달이 멈춘 것. 같은 명령을 다시 실행 (하네스가 3번까지 자동 재시도함) |
 | 고친 스크립트가 반영 안 됨 | `~/Documents/A4VAI-SITL/` 쪽 사본은 실행할 때마다 덮어써집니다. **이 저장소에서** 고치세요 |
 | 설치 로그 | `~/Documents/A4VAI-SITL/logs/install_<시각>.log` |
@@ -137,16 +121,7 @@ C-Track과 동시에 돌리지 마세요(둘 다 172.70.0.0/16 네트워크를 �
 |---|---|
 | [PX4-SITL-Runner](https://github.com/JOCIIIII/PX4-SITL-Runner) | 이 저장소(A4VAI 2세부 SILS·PILS 시뮬레이터): 설치·실행·PILS·실기체 스크립트, 기체 모델, 비행 프로필 |
 | [A4VAI-Algorithms-ROS2](https://github.com/JOCIIIII/A4VAI-Algorithms-ROS2) | ROS2 알고리즘: 학습 회피 정책, flight_driver, PathFollowing·SUPER(서브모듈), T1000(전북대) |
-| [A4VAI-Unreal](https://github.com/JOCIIIII/A4VAI-Unreal) | C-Track·Yard 시험장 (UE 5.8 + Cosys-AirSim 3.5). 릴리스 `A4VAI-Sim-v1.0`에 패키징 빌드 |
-
-## 검증 (2026-10-24, 빈 홈 폴더에서 새로 설치)
-
-- **GitHub에서만 받아 설치**(저장소 clone → `install.sh` → 릴리스 다운로드): 9분, 이어서 SILS `x8_5s` 착륙, 최소 여유 +1.00 m, 목표 오차 0.53 m
-- 설치: 7분 30초 (도커 이미지가 이미 있는 PC, PX4·ROS2·브리지 빌드와 Unreal 패키지 설치 포함)
-- 설치를 한 번 더 실행: 2초, 모든 단계가 "이미 됨"으로 건너뜀 (중간에 실패한 뒤 다시 실행하는 경로)
-- SILS `x8_5s`, 패키징된 Unreal: 착륙, 최소 여유 +0.51 m (나무 벽), 평균 3.26 m/s, 목표 오차 0.66 m
-- PILS 루프백(`ONBOARD_IP=127.0.0.1`, 같은 PC에서 온보드 쪽 실행) `x8_5s`: 착륙, 최소 여유 +1.22 m, 목표 오차 0.50 m
-- Jetson PILS는 v1.0 이전 스크립트로 orin-nano-01/02에서 검증했습니다(`scripts/dev/flight_profiles/README.md`).
+| [A4VAI-Unreal](https://github.com/JOCIIIII/A4VAI-Unreal) | 실증 시나리오 시험맵·Yard 맵 (UE 5.8 + Cosys-AirSim 3.5). 릴리스 `A4VAI-Sim-v1.0`에 패키징 빌드 |
 
 ## License
 

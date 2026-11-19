@@ -17,8 +17,8 @@ with the gz x500 meshes, and a one-time reconfigure so Gazebo renders `x500.sdf`
 a change with `./scripts/run.sh px4 build`. To regenerate the model:
 `python3 scripts/px4/x500/make_x500_model.py <PX4>/Tools/simulation/gazebo-classic/sitl_gazebo-classic/models/iris/iris.sdf.jinja scripts/px4/x500/x500.sdf.jinja`
 
-Select it with `SITL_AIRFRAME="x500"` in `envs/gazebo-classic.env` (C-Track harness: 7th
-argument `x500`). The ROS2 apps treat it as a quad (PathFollowing `quad.yaml`, SUPER
+Select it with `SITL_AIRFRAME="x500"` in `envs/gazebo-classic.env` (on the demonstration
+scenario test map, 실증 시나리오 시험맵: the harness's 7th argument `x500`). The ROS2 apps treat it as a quad (PathFollowing `quad.yaml`, SUPER
 `static_realgazebo.yaml`); the noclimb contact radius is its prop tips, 0.39 m.
 
 ## Sources
@@ -79,5 +79,5 @@ sees, so the flight does not depend on the assumed mass; give the real mass to
 | **x500_step_d** | **kQ and J_r x 21/34.8 (final)** | **0.642** | **119 / 25 ms + 10** | **123 / 13 ms + 20** | **18.9 / ~0** | **0.11** |
 
 The final model matches the vehicle in hover command, roll/pitch rate plant and yaw (gain and
-the absence of lag). Not checked: horizontal drag (the vehicle flew < 3 m/s), and flights in the
-C-Track field.
+the absence of lag). Not checked: horizontal drag (the vehicle flew < 3 m/s), and flights on the
+test map.

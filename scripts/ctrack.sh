@@ -1,5 +1,5 @@
 #!/bin/bash
-# C-TRACK UNREAL FIELD - THE ENTRY POINT (README.md "C-Track")
+# DEMONSTRATION SCENARIO TEST MAP (실증 시나리오 시험맵) ON UNREAL - THE ENTRY POINT (README.md, section 4)
 #
 #   ./scripts/ctrack.sh unreal [x8|x500] [CTrack|Yard]   start the simulator with the airframe's lidar mount
 #                                                         (restarts it when another airframe / map is running)
@@ -10,7 +10,7 @@
 #                       (the Jetson set up with scripts/dev/jetson_base_setup.sh + pils_jetson_setup.sh)
 #   CTRACK_LLM=1 ./scripts/ctrack.sh fly|pils PROFILE NAME
 #                       the mission from the operator's words: a local LLM (Ollama, LLM_URL / LLM_MODEL) turns a
-#                       Korean command into legs over the place table (LLM_PLACES, default C-Track); then
+#                       Korean command into legs over the place table (LLM_PLACES, default: the test map places); then
 #   ./scripts/ctrack.sh llm                               (another terminal) type the command, "확인" to fly
 #   CTRACK_SEARCH=1 ./scripts/ctrack.sh fly PROFILE NAME   the same with the search camera, 6 m up: "시험장에서 사람
 #                       찾아" -> a lawnmower, YOLOX on the camera, stop + photo + description per person, home;

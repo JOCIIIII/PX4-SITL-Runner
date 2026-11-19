@@ -123,7 +123,7 @@ def main():
     ap.add_argument('out')
     ap.add_argument('points', help='comma-separated layout waypoint names or X:Y pairs, e.g. START,WP1 or 0:0,60:0')
     ap.add_argument('--layout', default=os.path.join(_ctrack_dir(), 'layout', 'ctrack_layout.json'))
-    ap.add_argument('--alt', type=float, default=1.7, help='flight height above the ground [m] (= the C-Track runs\' path height)')
+    ap.add_argument('--alt', type=float, default=1.7, help='flight height above the ground [m] (= the test map runs\' path height)')
     ap.add_argument('--res', type=float, default=0.25, help='height map resolution [m/px]')
     ap.add_argument('--radius', type=float, default=1.2, help='vehicle horizontal radius [m] (X8 prop tips 0.77 + margin; 10-02 PP_RADIUS 1.2)')
     ap.add_argument('--vclear', type=float, default=0.5, help='vertical clearance under the vehicle centre [m]')
