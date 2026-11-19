@@ -7,9 +7,6 @@ ROS2 Humble(자율비행 알고리즘)을 도커로 묶어 이륙부터 착륙�
 - **PILS**: 같은 알고리즘을 기체용 동반 컴퓨터(Jetson)에서 돌리고, 시뮬레이션만 이 PC에서 합니다.
 - 실기체 비행에 쓰는 스크립트와 비행 프로필도 같은 저장소에 있습니다(`scripts/dev/onboard_real.sh`).
 
-> Claude Code로 이 저장소를 열면 `CLAUDE.md`를 읽고 설치·실행·분석을 대신 해 줄 수 있습니다.
-> 예: "설치해 줘", "x8_5s로 C-Track 비행해 줘", "방금 비행 흔들림 분석해 줘".
-
 ---
 
 ## 1. 요구사항
@@ -40,6 +37,8 @@ cd PX4-SITL-Runner
 ```bash
 ./scripts/install.sh
 ```
+
+설치 단계의 세부와 예전 AirSim 숲 흐름은 [docs/MANUAL.md](docs/MANUAL.md)에 있습니다.
 
 C-Track 시험장의 Unreal 패키지(약 400 MB)는 [A4VAI-Unreal 릴리스 `A4VAI-Sim-v1.0`](https://github.com/JOCIIIII/A4VAI-Unreal/releases/tag/A4VAI-Sim-v1.0)(A4VAI Sim v1.0)에서
 자동으로 받습니다. 인터넷이 안 되는 곳에서는 릴리스의 파일 3개를 미리 받아 `~/Downloads/A4VAI-Sim-v1.0/`에

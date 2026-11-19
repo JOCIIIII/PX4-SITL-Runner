@@ -2,7 +2,7 @@
 
 ## 설명
 
-[![en](https://img.shields.io/badge/lang-en-red.svg)](./README.md)
+[![en](https://img.shields.io/badge/lang-en-red.svg)](../README.md)
 [![kr](https://img.shields.io/badge/lang-kr-blue.svg)](./README-KR.md)
 
 - 본 저장소는 컨테이너 기반의 PX4 SITL 시뮬레이션 및 개발을 위한 스크립트 및 도구를 제공합니다.
@@ -31,4 +31,4 @@
 
 ## License
 
-- 본 저장소는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 [LICENSE](./LICENSE) 파일을 참조해주세요.
+- 본 저장소는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 [LICENSE](../LICENSE) 파일을 참조해주세요.

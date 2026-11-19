@@ -4,3 +4,10 @@ scripts/ros2/.vscode/
 CLAUDE.local.md
 __pycache__/
 *.pyc
+
+# local only: the assistant guide and working documents (papers, drafts, reports, notes)
+CLAUDE.md
+docs/*
+!docs/MANUAL.md
+!docs/README-KR.md
+scripts/dev/paper_*.py
