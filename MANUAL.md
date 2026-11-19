@@ -1,4 +1,4 @@
-# A4VAI SITL 설치 및 실행 매뉴얼
+# A4VAI 2세부 SILS·PILS 시뮬레이터 설치 및 실행 매뉴얼
 
 > v1.0의 기본 흐름(C-Track Unreal 시험장, PILS)은 `README.md` 4–5장에 있습니다. 이 문서는 설치 세부와 예전 AirSim 숲 흐름입니다.
 
@@ -11,7 +11,7 @@
 ## 설치 (명령 2개)
 
 ```bash
-git clone -b inhousesim-v1.0 https://github.com/JOCIIIII/PX4-SITL-Runner.git && cd PX4-SITL-Runner
+git clone https://github.com/JOCIIIII/A4VAI-SP2-Sim.git && cd A4VAI-SP2-Sim
 ./scripts/setup-host.sh     # 호스트 사전준비: Docker + NVIDIA Container Toolkit (sudo, 1회)
 ./scripts/install.sh        # 시뮬레이터 설치 (docker 그룹 추가됐다면 재로그인 후)
 ```

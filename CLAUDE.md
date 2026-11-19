@@ -1,6 +1,7 @@
 # CLAUDE.md
 
-Guidance for Claude Code in this repository (InhouseSim v1.0, branch `inhousesim-v1.0`). The user-facing guide is
+Guidance for Claude Code in this repository (A4VAI-SP2-Sim, the A4VAI subproject-2 SILS / PILS simulator, formerly PX4-SITL-Runner;
+branch `main`, also published as `inhousesim-v1.0`). The user-facing guide is
 `README.md` (Korean); answer the user in Korean unless they write otherwise.
 
 ## What this is
