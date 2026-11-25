@@ -1,0 +1,74 @@
+#!/bin/sh
+#
+# @name A4VAI UGV (Aion R1 rover model, differential drive) - Gazebo Classic
+# @type Rover
+# @class Rover
+#
+# PX4 v1.16 rover_differential (speed PID -> yaw P -> yaw-rate PID) on the stock r1_rover model.
+# Values start from 4009_gz_r1_rover; the classic model's wheel command is 40 rad/s at full
+# throttle on 0.0686 m wheels = 2.74 m/s. Installed into a private etc copy by
+# scripts/dev/ground/setup.sh - the PX4 tree is not touched.
+
+. ${R}etc/init.d/rc.rover_differential_defaults
+
+param set-default NAV_ACC_RAD 0.5
+
+# Differential parameters. The yaw-rate feedforward is rate x track / 2 over RD_MAX_THR_YAW_R (the wheel
+# speed at full differential, 2.7 m/s). The model skid-steers: a spot turn at a normalised difference of
+# 0.36 (wheel speed +-0.99 m/s) gave 1.45 rad/s, i.e. an effective track of 1.4 m, not the 0.3 m between
+# the wheels - with 0.3 the feedforward is a fifth of what the turn needs (step_ugv_6: 0.4 rad/s reached
+# of a 1.2 rad/s setpoint).
+param set-default RD_WHEEL_TRACK 1.4
+param set-default RD_MAX_THR_YAW_R 2.7
+param set-default RD_TRANS_DRV_TRN 0.349066
+param set-default RD_TRANS_TRN_DRV 0.174533
+
+# Rover control parameters
+param set-default RO_ACCEL_LIM 3
+param set-default RO_DECEL_LIM 5
+param set-default RO_JERK_LIM 30
+param set-default RO_MAX_THR_SPEED 2.7
+
+# Rate control
+param set-default RO_YAW_RATE_I 0.5
+param set-default RO_YAW_RATE_P 0.25
+param set-default RO_YAW_RATE_LIM 120
+param set-default RO_YAW_ACCEL_LIM 120
+param set-default RO_YAW_DECEL_LIM 1000
+
+# Attitude control
+param set-default RO_YAW_P 5
+
+# Velocity control
+param set-default RO_SPEED_LIM 2.5
+# speed loop: the feed-forward (speed / RO_MAX_THR_SPEED) alone lets the model coast on for 3 s after a
+# stop command (wheels at zero command brake weakly: 1.4 m past the end of a line, pf_ugv_line_g0)
+param set-default RO_SPEED_I 0.1
+param set-default RO_SPEED_P 0.5
+
+# Actuator mapping of the classic model: channels 0,1 = left wheels, 5,6 = right wheels.
+# rover_differential: motor 1 = throttle - diff, motor 2 = throttle + diff, and a positive diff must
+# turn right (positive yaw rate, NED) -> motor 2 on the left. The stock 1061 file has them the other
+# way round, which spins the rover at 500 deg/s under rate feedback (step_ugv_2).
+param set-default PWM_MAIN_FUNC1 102
+param set-default PWM_MAIN_FUNC2 102
+param set-default PWM_MAIN_FUNC6 101
+param set-default PWM_MAIN_FUNC7 101
+
+# SITL sensors: single simulated IMU
+param set-default EKF2_MULTI_IMU 0
+param set-default SENS_IMU_MODE 0
+# estimator, for the classic rover model. Root cause of the estimate errors: ODE's contact correction
+# velocities showed up in the IMU's angular velocity (roll / pitch rates the chassis did not turn through,
+# 0.06-0.10 rad/s mean during skid turns): fixed in the simulation (world contact_max_correcting_vel 0.1,
+# wheel contact max_vel 0.01 / min_depth 0, setup.sh). What is left is smaller, and these settings keep the
+# estimate closest to the simulator's truth over the moving step sequence (h_move_cur vs h_move_def):
+# position max 0.34 vs 0.54 m, velocity max 0.46 vs 1.19 m/s, yaw max 3.0 vs 9.9 deg.
+# - EKF2_GYR_NOISE 0.3 (default 0.015), EKF2_GPS_V_NOISE 0.05 (default 0.3): the (accurate) simulated GPS
+#   velocity corrects the tilt and the velocity quickly
+# - EKF2_IMU_CTRL 5: no accel-bias learning (standing still before the first drive the estimator cannot
+#   tell an accel bias from a tilt and ran it to its 0.4 m/s^2 limit). The gravity-vector bit is set but
+#   PX4 only uses it without GPS aiding.
+param set-default EKF2_IMU_CTRL 5
+param set-default EKF2_GYR_NOISE 0.3
+param set-default EKF2_GPS_V_NOISE 0.05

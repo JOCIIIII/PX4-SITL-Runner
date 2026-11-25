@@ -1,0 +1,216 @@
+{
+ "_comment": "UGV path-planning test yard (scripts/dev/ground). X = north, Y = east [m]; the vehicle starts at START facing north. Two walls leave 7 m gaps on opposite sides, so the route has to wind; crates, barrels, poles and trees stand in the open parts. Heights > 1 m: all block a ground vehicle. Plus a 1.5 m fence round the yard (also in the obstacle list, so the reference shortest path of scenario_pp.py cannot go round a wall end outside the yard).",
+ "field": {
+  "x_range": [
+   0,
+   40
+  ],
+  "y_range": [
+   0,
+   30
+  ]
+ },
+ "waypoints": {
+  "START": [
+   3,
+   15
+  ],
+  "GOAL": [
+   37,
+   15
+  ]
+ },
+ "obstacles": [
+  {
+   "name": "Wall_A",
+   "shape": "box",
+   "pos": [
+    12,
+    11.5
+   ],
+   "size": [
+    0.5,
+    23,
+    1.5
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Wall_B",
+   "shape": "box",
+   "pos": [
+    25,
+    18.5
+   ],
+   "size": [
+    0.5,
+    23,
+    1.5
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Crate_1",
+   "shape": "box",
+   "pos": [
+    6,
+    22
+   ],
+   "size": [
+    2,
+    2,
+    1.2
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Crate_2",
+   "shape": "box",
+   "pos": [
+    18.5,
+    15
+   ],
+   "size": [
+    1.5,
+    1.5,
+    1.2
+   ],
+   "yaw_deg": 20
+  },
+  {
+   "name": "Crate_3",
+   "shape": "box",
+   "pos": [
+    31,
+    6
+   ],
+   "size": [
+    2,
+    3,
+    1.2
+   ],
+   "yaw_deg": 30
+  },
+  {
+   "name": "Barrel_1",
+   "shape": "cylinder",
+   "pos": [
+    8,
+    12
+   ],
+   "size": [
+    0.6,
+    0.6,
+    1.0
+   ]
+  },
+  {
+   "name": "Pole_1",
+   "shape": "cylinder",
+   "pos": [
+    14,
+    26.5
+   ],
+   "size": [
+    0.3,
+    0.3,
+    2.0
+   ]
+  },
+  {
+   "name": "Pole_2",
+   "shape": "cylinder",
+   "pos": [
+    23,
+    3.5
+   ],
+   "size": [
+    0.3,
+    0.3,
+    2.0
+   ]
+  },
+  {
+   "name": "Tree_1",
+   "shape": "cylinder",
+   "pos": [
+    30,
+    14
+   ],
+   "size": [
+    0.8,
+    0.8,
+    4.0
+   ]
+  },
+  {
+   "name": "Tree_2",
+   "shape": "cylinder",
+   "pos": [
+    34,
+    10
+   ],
+   "size": [
+    0.6,
+    0.6,
+    4.0
+   ]
+  },
+  {
+   "name": "Fence_W",
+   "shape": "box",
+   "pos": [
+    20.0,
+    -0.25
+   ],
+   "size": [
+    41.0,
+    0.5,
+    1.5
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Fence_E",
+   "shape": "box",
+   "pos": [
+    20.0,
+    30.25
+   ],
+   "size": [
+    41.0,
+    0.5,
+    1.5
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Fence_S",
+   "shape": "box",
+   "pos": [
+    -0.25,
+    15.0
+   ],
+   "size": [
+    0.5,
+    31.0,
+    1.5
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Fence_N",
+   "shape": "box",
+   "pos": [
+    40.25,
+    15.0
+   ],
+   "size": [
+    0.5,
+    31.0,
+    1.5
+   ],
+   "yaw_deg": 0
+  }
+ ]
+}

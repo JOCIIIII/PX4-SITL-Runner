@@ -1,0 +1,201 @@
+{
+ "_comment": "USV path-planning test harbour (scripts/dev/ground). X = north, Y = east [m]; the boat starts at START facing north. Two breakwaters leave gaps on opposite sides; islands, a moored ship and buoys stand in the water. Every obstacle stands from 2 m below to 3-8 m above the water. Plus quay walls round the harbour (also in the obstacle list, so the reference shortest path of scenario_pp.py cannot go round a breakwater end outside the harbour).",
+ "field": {
+  "x_range": [
+   0,
+   200
+  ],
+  "y_range": [
+   0,
+   150
+  ]
+ },
+ "waypoints": {
+  "START": [
+   15,
+   75
+  ],
+  "GOAL": [
+   185,
+   75
+  ]
+ },
+ "obstacles": [
+  {
+   "name": "Breakwater_A",
+   "shape": "box",
+   "pos": [
+    70,
+    50
+   ],
+   "size": [
+    8,
+    100,
+    4
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Breakwater_B",
+   "shape": "box",
+   "pos": [
+    130,
+    100
+   ],
+   "size": [
+    8,
+    100,
+    4
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Island_1",
+   "shape": "cylinder",
+   "pos": [
+    35,
+    120
+   ],
+   "size": [
+    30,
+    30,
+    8
+   ]
+  },
+  {
+   "name": "Island_2",
+   "shape": "cylinder",
+   "pos": [
+    100,
+    80
+   ],
+   "size": [
+    22,
+    22,
+    8
+   ]
+  },
+  {
+   "name": "Ship_1",
+   "shape": "box",
+   "pos": [
+    160,
+    30
+   ],
+   "size": [
+    40,
+    10,
+    6
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Buoy_1",
+   "shape": "cylinder",
+   "pos": [
+    50,
+    70
+   ],
+   "size": [
+    2,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "Buoy_2",
+   "shape": "cylinder",
+   "pos": [
+    90,
+    120
+   ],
+   "size": [
+    2,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "Buoy_3",
+   "shape": "cylinder",
+   "pos": [
+    115,
+    45
+   ],
+   "size": [
+    2,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "Buoy_4",
+   "shape": "cylinder",
+   "pos": [
+    170,
+    90
+   ],
+   "size": [
+    2,
+    2,
+    3
+   ]
+  },
+  {
+   "name": "Fence_W",
+   "shape": "box",
+   "pos": [
+    100.0,
+    -1.0
+   ],
+   "size": [
+    204.0,
+    2.0,
+    4.0
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Fence_E",
+   "shape": "box",
+   "pos": [
+    100.0,
+    151.0
+   ],
+   "size": [
+    204.0,
+    2.0,
+    4.0
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Fence_S",
+   "shape": "box",
+   "pos": [
+    -1.0,
+    75.0
+   ],
+   "size": [
+    2.0,
+    154.0,
+    4.0
+   ],
+   "yaw_deg": 0
+  },
+  {
+   "name": "Fence_N",
+   "shape": "box",
+   "pos": [
+    201.0,
+    75.0
+   ],
+   "size": [
+    2.0,
+    154.0,
+    4.0
+   ],
+   "yaw_deg": 0
+  }
+ ]
+}

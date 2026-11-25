@@ -1,0 +1,56 @@
+#!/bin/sh
+#
+# @name A4VAI USV (PX4 boat model, twin fixed thrusters) - Gazebo Classic
+# @type Rover
+# @class Rover
+#
+# The stock boat model (227 kg catamaran, usv_dynamics plugin, two fixed thrusters 2 m apart)
+# under PX4 v1.16 rover_differential instead of the legacy rover_pos_control of airframe 1070:
+# the same cascade and the same offboard velocity interface as the UGV. Installed into a private
+# etc copy by scripts/dev/ground/setup.sh - the PX4 tree is not touched.
+
+. ${R}etc/init.d/rc.rover_differential_defaults
+
+# MAV_TYPE_SURFACE_BOAT
+param set-default MAV_TYPE 11
+param set-default NAV_ACC_RAD 2
+
+# Differential parameters (thruster separation; yaw rate at full differential thrust: measured)
+param set-default RD_WHEEL_TRACK 2.0
+param set-default RD_MAX_THR_YAW_R 1.0
+# a boat does not stop to turn: spot-turn only beyond 100 deg of heading error
+param set-default RD_TRANS_DRV_TRN 1.75
+param set-default RD_TRANS_TRN_DRV 1.0
+
+# Rover control parameters
+param set-default RO_ACCEL_LIM 1
+param set-default RO_DECEL_LIM 1
+param set-default RO_JERK_LIM 5
+param set-default RO_MAX_THR_SPEED 4.5
+
+# Rate control
+param set-default RO_YAW_RATE_I 0.1
+param set-default RO_YAW_RATE_P 1.0
+param set-default RO_YAW_RATE_LIM 40
+param set-default RO_YAW_ACCEL_LIM 40
+param set-default RO_YAW_DECEL_LIM 100
+
+# Attitude control
+param set-default RO_YAW_P 1.5
+
+# Velocity control
+param set-default RO_SPEED_LIM 4.0
+param set-default RO_SPEED_I 0.05
+param set-default RO_SPEED_P 0.2
+
+# Actuator mapping: channel 0 = left thruster, 1 = right thruster
+# (rover_differential: motor 1 = throttle - diff, motor 2 = throttle + diff)
+param set-default PWM_MAIN_FUNC1 102
+param set-default PWM_MAIN_FUNC2 101
+
+# SITL sensors: single simulated IMU
+param set-default EKF2_MULTI_IMU 0
+param set-default SENS_IMU_MODE 0
+# estimator: gyro bias + gravity-vector fusion, no accel-bias learning (as the UGV; the boat's estimate
+# stays within 0.5 m / 0.16 m/s / 1.1 deg of the simulator's truth with these, step_usv_4)
+param set-default EKF2_IMU_CTRL 5
